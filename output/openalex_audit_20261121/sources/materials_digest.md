@@ -1,6 +1,6 @@
 # 资料摘要与数据来源（供整理稿引用）
 
-本文件记录验收质疑清单所依据的全部数字与事实出处，确保每个引用值可追溯到源文件的具体 sheet / 段落。资料均来自工作区 `C:/Users/Administrator/Desktop/AIGC/OpenAlex/`。
+本文件记录验收质疑清单所依据的全部数字与事实出处，确保每个引用值可追溯到源文件的具体 sheet / 段落。资料均来自当前工作区的 `reference/` 目录（原归档路径 `C:/Users/Administrator/Desktop/AIGC/OpenAlex/` 仅作历史溯源，不是可执行路径）。
 
 ## 1. （需求清单）.doc
 - 6 大需求模块：数据获取清洗校正、实验数据分析（含可视化、DID）、文献、论文写作、本地化部署与交付（第 6、7 行为空）。
@@ -23,18 +23,19 @@
 
 ## 4. 1030版_新三学者基线与增量对照数据.xlsx（25 个 sheet）
 - 说明与方法归属：A=原名单与新三人（新抓取）；方案基线 60% 归 A；阈值 50%/70% 归 B（独立重算不覆盖 A）；时间差诊断/证据卡归 B 复用 A 证据；重要限制=A/B 两人分类不确定、ROR/原文恢复不完整、未用户审计。
-- A身份映射：Becke S000016（107 篇，1977-2024）、Perdew S000017（535 篇，1970-2026）、Newman S000028（371 抓取/370 去重，1991-2026）；均 A 级、均有 ORCID。
+- A身份映射：Becke S000016（107 篇，1977-2024）、Perdew S000017（535 篇，1970-2026）、Newman S000028（371 抓取/370 去重，1991-2026）；均 A 级、均有 ORCID。`original_row` 分别为 17/18/29，与 SQL 种子中 `source_scholar.src_id` 一致；S 编号与 original_row 相差 1，不是数据错误。
 - A生涯汇总：Becke D=1/I=0/S=1，观测 M6、正式 mobility_class 空、分类不确定，7 个未观测年、1 个 Possible；Perdew D=1/I=0/S=1，观测 M6、正式类空、分类不确定，3 个未观测年、3 个并列年、1 个 Possible；Newman D=1/I=1/S=1，M8、可分类（观测期内）、跨国迁移型、0 缺失、0 并列、0 Possible。
 - A实施口径：R5 预印本跨版本未证实同作品不自动合并、风险另报；R6 同 DOI 保留结构化署名更丰富记录；R9 并列保留不强选；R10 S_tie_policy 唯一主国家且有他国有效机构署名才给确证 1；R11 分母与并列口径"非用户原文已明确的参数"，另列敏感性不改原阈值；R12 now_utc=2026-11-01T02:12:41Z。
-- A基线请求清单：64 条请求记录（65 行含表头），含 200/401/429 状态、sha256、时间戳（2026-11-01T02:07–02:10Z）；后端路径 `/srv/catsco-agent/work/artifact-user-ledger/tmp/1030-fresh/`。
-- A补查Crossref：156 条记录（157 行含表头），多条 matched_author_no_affiliation / target_author_not_matched / http_error（429、301）。
+- A基线请求清单：64 条请求记录（65 行含表头），状态为 200×62 / 401×1 / 404×1（原摘要误记为 429），含 sha256、时间戳（2026-11-01T02:07:16Z–02:15:00Z，原摘要误记为 02:10 截止）；后端根目录 `/srv/catsco-agent/work/artifact-user-ledger/tmp/1030-fresh/`，但清单未给出逐条响应文件路径。已由 `design/api_request_seed.sql` 全量迁入 `api_request`。
+- A补查Crossref：156 条记录（157 行含表头），多条 matched_author_no_affiliation / target_author_not_matched / http_error（429×9、301×4、404×26）；有 `raw_path` 可作 `backend_path`，无时间戳/sha256/字节数。已按用户确认的 DOI 推导规则（`https://api.crossref.org/works/{percent-encoded-doi}`）由 `design/api_request_crossref_seed.sql` 迁入 `api_request`。
 - A最终有效迁移时间表：6 条迁移（7 行含表头）。Becke 2 条 C1 用 signature_proxy、actual_migration_year 空、gap=1；Perdew 1 条 C1（2024 署名 / 2023 实际，external_actual）；Newman 1 条 C2（1992/1991）+ 2 条 C1（1997/1996、2003/2002），均 external_actual、gap=1。
+- A事件审计 / B逐事件阈值对照：6 个有效事件的 `support_work_ids`、`validation_years`、`auto_grade`、`external_status`、`external_evidence` 与 B50/B70 敏感性结果，已由 `design/event_evidence_seed.sql` 迁入 `event_evidence`（6 事件 × 5 判据 = 30 行）。逐事件份额值原表未给出，`share_threshold.measured_value` 留空。
 - B时间差诊断：4 条，差值均 +1 年；来源 fi.edu 获奖页、umich 个人主页；标注"B 诊断复用 A 证据"。
 - A不确定转换：6 条（7 行含表头），均 Perdew，原因"相邻实观测主状态有并列，不强定迁移方向"（1974-75、1975-76、1977-78、1978-79、2012-13、2013-14）。
 - A可能机构名称变化观察：112 条（113 行含表头）。
 - A次级联系持续终止：19 条（20 行含表头），end_status=not_secondary_observed。
 - ADOI去重记录：1 条（2 行含表头），Newman 同 DOI。
-- 规则测试：19 项（20 行含表头），含 test_c1 / test_c2_suppresses_c1 / test_c3 / test_c4 / test_c5 / test_eight_classes / test_threshold_boundary 等，状态 passed。
+- 规则测试：19 项（20 行含表头），含 test_c1 / test_c2_suppresses_c1 / test_c3 / test_c4 / test_c5 / test_eight_classes / test_threshold_boundary 等，状态 passed。已由 `design/rule_test_seed.sql` 迁入 `rule_test`，原始 JSON 保留在 `detail`。
 - B生涯对照：6 条（7 行含表头），B_占比敏感性_0.5 与 _0.7 各 3 条；0.7 下 Becke 国内迁移由 2 降为 1、Possible 由 1 升为 2。
 - A轨迹_Newman：主国家 1991 GB → 1992 US；主机构 Oxford→Cornell(1992)→Santa Fe(1997)→Michigan(2003)；含城市与经纬度；最终事件 1992:C2 / 1997:C1 / 1998:C3 / 2003:C1 / 2016:C3。
 

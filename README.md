@@ -59,8 +59,17 @@ OpenAlex/
 │   ├── schema.sql
 │   ├── 三人小样_seed.sql
 │   ├── 三人小样_AGE投影.sql
+│   ├── verify_poc.sql                    # 导入后可执行的一致性/完整性核对
 │   ├── 三人小样原型_部署文档.md
 │   └── 三人小样原型_部署文档_Docker_WSL版.md
+├── pipeline/                         # 全量跑批（WP0/WP1/WP2）
+│   ├── README.md                         # API key 获取、额度、运行说明
+│   ├── config.py                         # 环境变量/路径/限速
+│   ├── oa_client.py                      # 认证、限速、429 退避、请求留痕
+│   ├── wp0_import.py                     # 105,026 人名单导入 + 1,000 人子集
+│   ├── wp12_fetch.py                     # 作者检索 + 作品抓取（断点续跑）
+│   ├── export_requests_sql.py            # 请求留痕导入数据库
+│   └── data/batch_001/                   # 试跑产物（subset/candidates/works/requests）
 └── output/                           # 分析与交付物
     └── openalex_audit_20261121/
         ├── sources/materials_digest.md
@@ -81,8 +90,8 @@ OpenAlex/
 
 **关系库为唯一真相源，AGE 图是可丢弃的派生投影**：
 
-- **PostgreSQL 16 + PostGIS**：18 张表覆盖身份、作品署名、机构地理、年度面板、事件证据分类、请求日志。`rule_version` 进入事件/分类表主键，A 轨以触发器锁定不可变。
-- **Apache AGE**：8 类节点 / 14 种边的图投影，时间作为 `AFFILIATED` 边属性、规则版本作版本属性。图随时可 `drop_graph` 重建，不影响原始数据。
+- **PostgreSQL 16 + PostGIS**：22 张表覆盖身份、作品署名、机构地理、年度面板、事件证据分类、请求日志。`rule_version` 进入事件/分类表唯一约束，A 轨以触发器锁定不可变。
+- **Apache AGE**：目标模式为 7 类节点 / 14 种边；三人小样投影实际实现 5 类节点 / 9 种边（暂不含 `Work`/`Alias` 节点及 `AUTHORED`/`SIGNED_AT`/`RENAMED_TO`/`IN_COHORT` 边）。时间作为 `AFFILIATED` 边属性、规则版本作版本属性。图随时可重建，不影响原始数据。
 - **分工**：统计判定（众数、占比、C2 抑制、阈值敏感性）全在 SQL；迁移轨迹、改名链、合作网络等路径查询走图；DID 回归导出到 pandas/statsmodels。
 
 ## 快速开始
@@ -90,24 +99,42 @@ OpenAlex/
 三人小样原型已备好可执行的建表、种子与图投影脚本。Docker + WSL 环境：
 
 ```bash
-docker pull apache/age:PG16_latest
-docker run -d --name openalex-pg -e POSTGRES_PASSWORD=openalex123 \
-  -e POSTGRES_DB=openalex -p 5432:5432 apache/age:PG16_latest
+# 旧 tag PG16_latest 已失效；直连 Docker Hub 超时可用镜像站
+docker pull docker.1ms.run/apache/age:release_PG16_1.6.0
+docker tag docker.1ms.run/apache/age:release_PG16_1.6.0 apache/age:release_PG16_1.6.0
+
+export OPENALEX_DB_PASSWORD='<请设置强密码>'
+docker run -d --name openalex-pg -e POSTGRES_PASSWORD="$OPENALEX_DB_PASSWORD" \
+  -e POSTGRES_DB=openalex -p 5433:5432 apache/age:release_PG16_1.6.0
+
+# AGE 官方镜像不含 PostGIS；schema.sql 用到 GEOGRAPHY，需补装兼容版本
+docker exec openalex-pg bash -lc 'sed -i "s|http://deb.debian.org/debian|http://mirrors.aliyun.com/debian|g; s|http://deb.debian.org/debian-security|http://mirrors.aliyun.com/debian-security|g" /etc/apt/sources.list.d/debian.sources && apt-get update -y && DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql-16-postgis-3=3.6.4+dfsg-2.pgdg13+1 postgresql-16-postgis-3-scripts=3.6.4+dfsg-2.pgdg13+1'
+docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -d openalex -c 'CREATE EXTENSION IF NOT EXISTS age; CREATE EXTENSION IF NOT EXISTS postgis;'
 
 docker cp design/schema.sql               openalex-pg:/tmp/schema.sql
 docker cp design/三人小样_seed.sql          openalex-pg:/tmp/seed.sql
 docker cp design/三人小样_AGE投影.sql        openalex-pg:/tmp/graph.sql
+docker cp design/verify_poc.sql            openalex-pg:/tmp/verify.sql
+docker cp design/api_request_seed.sql      openalex-pg:/tmp/api_seed.sql
+docker cp design/api_request_crossref_seed.sql openalex-pg:/tmp/crossref_seed.sql
+docker cp design/event_evidence_seed.sql  openalex-pg:/tmp/ee_seed.sql
+docker cp design/rule_test_seed.sql       openalex-pg:/tmp/rt_seed.sql
 
-docker exec openalex-pg psql -U postgres -d openalex -f /tmp/schema.sql
-docker exec openalex-pg psql -U postgres -d openalex -f /tmp/seed.sql
-docker exec openalex-pg psql -U postgres -d openalex -f /tmp/graph.sql
+docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -d openalex -v ON_ERROR_STOP=1 -f /tmp/schema.sql
+docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -d openalex -v ON_ERROR_STOP=1 -f /tmp/seed.sql
+docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -d openalex -v ON_ERROR_STOP=1 -f /tmp/graph.sql
+docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -d openalex -v ON_ERROR_STOP=1 -f /tmp/api_seed.sql
+docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -d openalex -v ON_ERROR_STOP=1 -f /tmp/crossref_seed.sql
+docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -d openalex -v ON_ERROR_STOP=1 -f /tmp/ee_seed.sql
+docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -d openalex -v ON_ERROR_STOP=1 -f /tmp/rt_seed.sql
+docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -d openalex -v ON_ERROR_STOP=1 -f /tmp/verify.sql
 ```
 
-导入后种子数据为：3 学者 / 11 机构 / 139 年度面板 / 126 署名占比 / 6 条迁移事件 / 4 条外部履历 / 9 条分类结果。跑 `三人小样原型_部署文档_Docker_WSL版.md` 第 7.1 节的 V1–V5 图查询，应看到 Newman 的完整轨迹与三人分类现状。
+导入后种子数据为：3 条原始名单行 / 3 学者 / 11 机构 / 139 年度面板 / 126 署名占比 / 6 条迁移事件 / 4 条外部履历 / 9 条分类结果 / 30 条事件证据 / 19 项规则测试 / 220 条 API 请求日志（64 基线 + 156 Crossref 补查）。跑 `三人小样原型_部署文档_Docker_WSL版.md` 第 7.1 节的 V1–V5 图查询，应看到 Newman 的完整轨迹与三人分类现状。
 
 ## 项目状态
 
-**已完成**：三人小样的全链路验证（身份匹配 → 抓取留痕 → 机构标准化 → 年度面板 → C1–C5 事件 → 履历佐证 → 轨迹矩阵），19 项规则测试通过，证据链做到 API 级留痕（URL、时间戳、HTTP 状态、sha256）。
+**已完成**：三人小样的全链路验证（身份匹配 → 抓取留痕 → 机构标准化 → 年度面板 → C1–C5 事件 → 履历佐证 → 轨迹矩阵）。原始 Excel 中的留痕数据现已全部迁入 SQL：`api_request` 220 条（64 基线 + 156 Crossref 补查）、`event_evidence` 30 条（6 事件 × 5 判据）、`rule_test` 19 项（全部 passed）。三张留痕表不再是空表。
 
 **未完成 / 边界**：
 
@@ -115,9 +142,22 @@ docker exec openalex-pg psql -U postgres -d openalex -f /tmp/graph.sql
 - Newman 证据完整、判为 M8；Becke / Perdew 因任职年份缺失与并列年，`mobility_class` 正式字段留空。
 - 6 条有效迁移中，2 条用署名年代理、无真实任职年份；70% 阈值下部分事件从 Probable 降为 Possible。
 - 「中国出生、现居美国」人群筛选、DID 分析、文献模块、论文写作、本地化部署尚未实施。
+- 全量跑批已搭好 `pipeline/` 并完成 1,000 人子集与 3 人极小样本验证（详见 `pipeline/README.md`），但**尚未跑满 1,000 人**：polite pool 已于 2026-02 废除，需先取得免费 API key 并设置 `OPENALEX_API_KEY` 才能翻页抓全量作品。WP1 目前只产出候选、不自动定案。
 - 未做用户人工抽样审计；报告作者主动声明「只完成小样本，不可宣称全方案通过」。
 
 因此本仓库的材料定位为**可审计的小样施工成果 + 证据边界声明**，而非验收通过报告。`output/` 中的验收质疑清单据此整理了付款前需澄清的事项。
+
+> **2026-11-21 修复记录**：补齐 `source_scholar` 种子以解除外键阻塞；修正 C5 消解 SQL 的列名、证据枚举与主键描述；给图脚本加上可重复执行保护；清理种子中的履历来源类型与 URL 污染；移除硬编码口令和他人绝对路径；新增 `design/verify_poc.sql` 供导入后逐项核对。详见 `design/关系库+AGE_图模式设计.md` 的版本说明。
+
+### 本机 WSL 环境（已安装并验证）
+
+- Docker Engine 26.1.5（WSL Debian 内，`docker` 组已包含当前用户）；原生 PostgreSQL 17.12 + PostGIS 3.5 占用端口 5432，`psql` 17.12。
+- 数据库 `openalex`（原生 PG 17）已导入 `schema.sql` + 三人小样种子 + 四份留痕种子（220 条 API 请求 / 30 条事件证据 / 19 项规则测试）；`verify_poc.sql` 全部检查为 `OK`。
+- AGE 容器 `openalex-pg` 已启动，镜像 `apache/age:release_PG16_1.6.0`（479 MB），端口 **5433→5432**，容器内补装 PostGIS 3.6.4（3.7 与 PG16 二进制不兼容）。`schema.sql` + 种子 + 图投影 + 四份留痕种子 + `verify_poc.sql` 全部执行成功，V1–V5 图查询输出与文档预期一致。
+- 口令保存在 WSL 的 `/home/v/.openalex_db_pass`（权限 600）。连接示例：
+  `PGPASSWORD=$(cat ~/.openalex_db_pass) psql -h 127.0.0.1 -U postgres -d openalex`（原生 5432），
+  `PGPASSWORD=$(cat ~/.openalex_db_pass) psql -h 127.0.0.1 -p 5433 -U postgres -d openalex`（AGE 容器）。
+- AGE 镜像的旧 tag `PG16_latest` 已失效，正确 tag 为 `release_PG16_1.6.0`。若 Docker Hub 直连超时，用 `docker.1ms.run` 镜像站拉取后 `docker tag`。
 
 ## 技术栈
 

@@ -2,15 +2,23 @@
 -- 三人小样 · Apache AGE 图投影脚本
 -- 前置：已执行 schema.sql + 三人小样_seed.sql
 -- 环境：客户机器 Docker / WSL Ubuntu（AGE 已可用）
--- 投影内容：3 学者 / 3 国家 / 11 机构 / 4 履历 / 6 事件 + 关联边
--- 生成日期：2026-11-21
+-- 投影内容：3 学者 / 11 国家字典中的 3 个主国家 / 11 机构 / 4 履历 / 6 事件 + 关联边
+-- 本脚本只实现设计文档中目标模式的一部分：5 类顶点（Scholar/Institution/Country/CareerFact/Event）
+-- 与 9 种边；不含 Work/Alias 节点及 AUTHORED/SIGNED_AT/RENAMED_TO/IN_COHORT 边。
+-- 生成日期：2026-11-21（v1.1：drop_graph 加存在性判断）
 -- ============================================================
 
 LOAD 'age';
 SET search_path = ag_catalog, "$user", public;
 
--- 0) 重建图（重复执行安全）
-SELECT drop_graph('mobility', true);
+-- 0) 重建图（重复执行安全：图不存在时跳过 drop，避免首次执行报错）
+DO $do$
+BEGIN
+    IF EXISTS (SELECT 1 FROM ag_catalog.ag_graph WHERE name = 'mobility') THEN
+        PERFORM drop_graph('mobility', true);
+    END IF;
+END
+$do$;
 SELECT create_graph('mobility');
 
 -- 1) 标签
@@ -29,10 +37,10 @@ SELECT create_elabel('mobility','TO_COUNTRY');
 SELECT create_elabel('mobility','CORROBORATED_BY');
 SELECT create_elabel('mobility','HAS_FACT');
 
--- 2) 属性索引（AGE 1.x 通用写法）
-CREATE INDEX ON "mobility"."Scholar" USING btree ((properties->>'sid'));
-CREATE INDEX ON "mobility"."Event" USING btree ((properties->>'eid'));
-CREATE INDEX ON "mobility"."AFFILIATED" USING gin (properties);
+-- 2) 属性索引（AGE 1.6 的 agtype 下标语法与旧版不同，小样数据量无需索引，故默认注释）
+-- CREATE INDEX ON "mobility"."Scholar" USING btree ((properties->>'sid'));
+-- CREATE INDEX ON "mobility"."Event" USING btree ((properties->>'eid'));
+-- CREATE INDEX ON "mobility"."AFFILIATED" USING gin (properties);
 
 -- 3) 学者节点（sid 与关系库 scholar_id 一致）
 SELECT * FROM cypher('mobility', $$
@@ -61,7 +69,7 @@ SELECT * FROM cypher('mobility', $$
   UNWIND [
     {iid:1,  name:'McMaster University',                          city:'Hamilton',     lat:43.25011,           lon:-79.84963,           country:'CA'},
     {iid:2,  name:'Dalhousie University',                         city:'Halifax',      lat:44.64269,           lon:-63.57688,           country:'CA'},
-    {iid:3,  name:'Queen''s University',                          city:'Kingston',     lat:44.22976,           lon:-76.48098,           country:'CA'},
+    {iid:3,  name:'Queen\'s University',                          city:'Kingston',     lat:44.22976,           lon:-76.48098,           country:'CA'},
     {iid:4,  name:'Cornell University',                           city:'Ithaca',       lat:42.44063,           lon:-76.49661,           country:'US'},
     {iid:5,  name:'University of Toronto',                        city:'Toronto',      lat:43.70643,           lon:-79.39864,           country:'CA'},
     {iid:6,  name:'Rutgers, The State University of New Jersey',  city:'New Brunswick',lat:40.48622,           lon:-74.45182,           country:'US'},
@@ -102,6 +110,7 @@ $$) AS (v agtype);
 -- 注：AFFILIATED 边只取"机构变化点"，完整 139 年面板仍在关系库；图仅存轨迹拐点。
 
 -- 8) 外部履历节点（4 条，真实 URL 来自 B时间差诊断）
+--    source_type 与 seed.sql 一致：1 条 award + 3 条 cv；sha256 未随小样迁移。
 SELECT * FROM cypher('mobility', $$
   UNWIND [
     {fid:1, sid:2, y:2023, src:'award', url:'https://fi.edu/en/awards/laureates/john-p-perdew'},
@@ -109,10 +118,16 @@ SELECT * FROM cypher('mobility', $$
     {fid:3, sid:3, y:1996, src:'cv',    url:'https://www-personal.umich.edu/~mejn/Newman_CV.pdf'},
     {fid:4, sid:3, y:2002, src:'cv',    url:'https://www-personal.umich.edu/~mejn/Newman_CV.pdf'}
   ] AS r
-  MATCH (s:Scholar {sid:r.sid})
   CREATE (f:CareerFact {fid:r.fid, year:r.y, source_type:r.src, url:r.url})
+  RETURN f.fid
+$$) AS (v agtype);
+
+-- 8b) HAS_FACT 边（AGE 1.6 不允许在同一语句内返回刚被边引用的顶点，故拆开）
+SELECT * FROM cypher('mobility', $$
+  UNWIND [{fid:1, sid:2}, {fid:2, sid:3}, {fid:3, sid:3}, {fid:4, sid:3}] AS r
+  MATCH (s:Scholar {sid:r.sid}), (f:CareerFact {fid:r.fid})
   CREATE (s)-[:HAS_FACT]->(f)
-  RETURN f
+  RETURN f.fid
 $$) AS (v agtype);
 
 -- 9) 事件节点 + 起止边（6 条，与 mobility_event 逐条对应）
@@ -125,11 +140,18 @@ SELECT * FROM cypher('mobility', $$
     {eid:5, sid:3, type:'C1', py:1997, ay:1996, lvl:'Confirmed'},
     {eid:6, sid:3, type:'C1', py:2003, ay:2002, lvl:'Confirmed'}
   ] AS r
-  MATCH (s:Scholar {sid:r.sid})
   CREATE (e:Event {eid:r.eid, type:r.type, paper_year:r.py, actual_year:r.ay,
                    level:r.lvl, rv:'A_base_060'})
+  RETURN e.eid
+$$) AS (v agtype);
+
+-- 9b) EXPERIENCED 边（同 8b，拆开写）
+SELECT * FROM cypher('mobility', $$
+  UNWIND [{eid:1, sid:1}, {eid:2, sid:1}, {eid:3, sid:2},
+          {eid:4, sid:3}, {eid:5, sid:3}, {eid:6, sid:3}] AS r
+  MATCH (s:Scholar {sid:r.sid}), (e:Event {eid:r.eid})
   CREATE (s)-[:EXPERIENCED]->(e)
-  RETURN e
+  RETURN e.eid
 $$) AS (v agtype);
 
 -- 10) 事件 -> 起止机构（显式 eid→机构映射，避免 Cypher 模式内 CASE）
@@ -189,7 +211,7 @@ SELECT * FROM cypher('mobility', $$
   RETURN s.name AS who, e.type AS type, e.paper_year AS py,
          e.actual_year AS ay, e.level AS lvl,
          fi.name AS fromInst, ti.name AS toInst, f.url AS evidence
-  ORDER BY py
+  ORDER BY e.paper_year
 $$) AS (who agtype, type agtype, py agtype, ay agtype, lvl agtype,
         fromInst agtype, toInst agtype, evidence agtype);
 -- 预期 6 行；Becke 2 行 ay 为空、lvl=Possible、evidence 为空；其余 4 行有履历

@@ -5,10 +5,18 @@
 -- ============================================================
 BEGIN;
 
--- 1) 国家
+-- 1) 国家（含三人面板 secondary_countries 中出现的全部代码，满足 annual_panel 字典触发器）
 INSERT INTO country(country_code,name_zh,name_en) VALUES ('CA','加拿大','Canada') ON CONFLICT DO NOTHING;
 INSERT INTO country(country_code,name_zh,name_en) VALUES ('US','美国','United States') ON CONFLICT DO NOTHING;
 INSERT INTO country(country_code,name_zh,name_en) VALUES ('GB','英国','United Kingdom') ON CONFLICT DO NOTHING;
+INSERT INTO country(country_code,name_zh,name_en) VALUES ('CH','瑞士','Switzerland') ON CONFLICT DO NOTHING;
+INSERT INTO country(country_code,name_zh,name_en) VALUES ('DE','德国','Germany') ON CONFLICT DO NOTHING;
+INSERT INTO country(country_code,name_zh,name_en) VALUES ('FR','法国','France') ON CONFLICT DO NOTHING;
+INSERT INTO country(country_code,name_zh,name_en) VALUES ('PT','葡萄牙','Portugal') ON CONFLICT DO NOTHING;
+INSERT INTO country(country_code,name_zh,name_en) VALUES ('SI','斯洛文尼亚','Slovenia') ON CONFLICT DO NOTHING;
+INSERT INTO country(country_code,name_zh,name_en) VALUES ('HU','匈牙利','Hungary') ON CONFLICT DO NOTHING;
+INSERT INTO country(country_code,name_zh,name_en) VALUES ('IE','爱尔兰','Ireland') ON CONFLICT DO NOTHING;
+INSERT INTO country(country_code,name_zh,name_en) VALUES ('CN','中国','China') ON CONFLICT DO NOTHING;
 
 -- 2) 机构（坐标已从源[经度,纬度]对调为[lat,lon]）
 INSERT INTO institution(institution_id,canonical_name,country_code,city,lat,lon) VALUES (1,'McMaster University','CA','Hamilton',43.25011,-79.84963) ON CONFLICT DO NOTHING;
@@ -24,7 +32,24 @@ INSERT INTO institution(institution_id,canonical_name,country_code,city,lat,lon)
 INSERT INTO institution(institution_id,canonical_name,country_code,city,lat,lon) VALUES (11,'University of Michigan','US','Ann Arbor',42.27756,-83.74088) ON CONFLICT DO NOTHING;
 SELECT setval(pg_get_serial_sequence('institution','institution_id'),11);
 
--- 3) 学者 + 身份映射
+-- 3) 原始名单行（Table-S1 Career 表第 17/18/29 行）
+--    src_id 取 Excel 的 original_row；source_row 取 S000016/S000017/S000028 的编号；
+--    原始 3 字母小写国家码保存在 raw_payload，避免 CHAR(2) 列丢失原值。
+INSERT INTO source_scholar(src_id,source_row,authfull,inst_name,cntry,np6017,firstyr,lastyr,h17,citations,raw_payload)
+VALUES (17,16,'Becke, Axel D.','Dalhousie University','CA',73,1977,2018,46,127244,
+        '{"scientist_id":"S000016","original_row":17,"raw_cntry":"can","source":"Table-S1-career-2017.xlsx"}')
+ON CONFLICT DO NOTHING;
+INSERT INTO source_scholar(src_id,source_row,authfull,inst_name,cntry,np6017,firstyr,lastyr,h17,citations,raw_payload)
+VALUES (18,17,'Perdew, John P.','Temple University','US',277,1970,2018,67,160610,
+        '{"scientist_id":"S000017","original_row":18,"raw_cntry":"usa","source":"Table-S1-career-2017.xlsx"}')
+ON CONFLICT DO NOTHING;
+INSERT INTO source_scholar(src_id,source_row,authfull,inst_name,cntry,np6017,firstyr,lastyr,h17,citations,raw_payload)
+VALUES (29,28,'Newman, M.E.J.','University of Michigan','US',177,1993,2018,73,72884,
+        '{"scientist_id":"S000028","original_row":29,"raw_cntry":"usa","source":"Table-S1-career-2017.xlsx"}')
+ON CONFLICT DO NOTHING;
+SELECT setval(pg_get_serial_sequence('source_scholar','src_id'),29);
+
+-- 4) 学者 + 身份映射
 INSERT INTO scholar(scholar_id,src_id,display_name) VALUES (1,17,'Becke') ON CONFLICT DO NOTHING;
 INSERT INTO identity_map(scholar_id,scheme,external_id,match_level) VALUES (1,'openalex','A5015077264','A') ON CONFLICT DO NOTHING;
 INSERT INTO identity_map(scholar_id,scheme,external_id,match_level) VALUES (1,'orcid','0000-0002-6668-7728','A') ON CONFLICT DO NOTHING;
@@ -36,7 +61,7 @@ INSERT INTO identity_map(scholar_id,scheme,external_id,match_level) VALUES (3,'o
 INSERT INTO identity_map(scholar_id,scheme,external_id,match_level) VALUES (3,'orcid','0000-0002-0907-1660','A') ON CONFLICT DO NOTHING;
 SELECT setval(pg_get_serial_sequence('scholar','scholar_id'),3);
 
--- 4) 年度面板（主国家/主机构/次级国/观测状态/最终事件）
+-- 7) 年度面板（主国家/主机构/次级国/观测状态/最终事件）
 INSERT INTO annual_panel(scholar_id,year,primary_institution_id,primary_country,secondary_countries,is_imputed,observation_status,note) VALUES (1,1977,1,'CA',NULL,false,'observed','[]') ON CONFLICT DO NOTHING;
 INSERT INTO annual_panel(scholar_id,year,primary_institution_id,primary_country,secondary_countries,is_imputed,observation_status,note) VALUES (1,1978,NULL,NULL,NULL,false,'unobserved','NULL') ON CONFLICT DO NOTHING;
 INSERT INTO annual_panel(scholar_id,year,primary_institution_id,primary_country,secondary_countries,is_imputed,observation_status,note) VALUES (1,1979,1,'CA',NULL,false,'observed','[]') ON CONFLICT DO NOTHING;
@@ -177,7 +202,9 @@ INSERT INTO annual_panel(scholar_id,year,primary_institution_id,primary_country,
 INSERT INTO annual_panel(scholar_id,year,primary_institution_id,primary_country,secondary_countries,is_imputed,observation_status,note) VALUES (3,2024,11,'US',NULL,false,'observed','[]') ON CONFLICT DO NOTHING;
 INSERT INTO annual_panel(scholar_id,year,primary_institution_id,primary_country,secondary_countries,is_imputed,observation_status,note) VALUES (3,2025,11,'US',NULL,false,'observed','[]') ON CONFLICT DO NOTHING;
 
--- 5) 署名占比（小样每年仅主机构1条，share=1.0）
+-- 8) 署名占比（小样每年仅主机构 1 条，share 恒为 1.0）
+--    注意：这不等于真实逐篇署名占比，不能用于验证 50%/60%/70% 阈值边界。
+--    阈值逻辑的可执行演示放在 verify_poc.sql 的 VALUES 用例中，不污染种子数据。
 INSERT INTO affiliation_share(scholar_id,year,institution_id,country_code,work_count,share,is_primary) VALUES (1,1977,1,'CA',1,1.0000,true) ON CONFLICT DO NOTHING;
 INSERT INTO affiliation_share(scholar_id,year,institution_id,country_code,work_count,share,is_primary) VALUES (1,1979,1,'CA',1,1.0000,true) ON CONFLICT DO NOTHING;
 INSERT INTO affiliation_share(scholar_id,year,institution_id,country_code,work_count,share,is_primary) VALUES (1,1982,1,'CA',1,1.0000,true) ON CONFLICT DO NOTHING;
@@ -305,23 +332,27 @@ INSERT INTO affiliation_share(scholar_id,year,institution_id,country_code,work_c
 INSERT INTO affiliation_share(scholar_id,year,institution_id,country_code,work_count,share,is_primary) VALUES (3,2024,11,'US',1,1.0000,true) ON CONFLICT DO NOTHING;
 INSERT INTO affiliation_share(scholar_id,year,institution_id,country_code,work_count,share,is_primary) VALUES (3,2025,11,'US',1,1.0000,true) ON CONFLICT DO NOTHING;
 
--- 6) 6 条有效迁移事件（A轨）
-INSERT INTO mobility_event(event_id,scholar_id,event_type,paper_year,actual_year,gap_years,evidence_level,year_source,rule_version,note) VALUES (1,1,'C1',1986,NULL,1,'Possible','signature_proxy','A_base_060','candidate_id=ef533ea9567a0ad8');
-INSERT INTO mobility_event(event_id,scholar_id,event_type,paper_year,actual_year,gap_years,evidence_level,year_source,rule_version,note) VALUES (2,1,'C1',2007,NULL,1,'Possible','signature_proxy','A_base_060','candidate_id=8cb677ab7de247f1');
-INSERT INTO mobility_event(event_id,scholar_id,event_type,paper_year,actual_year,gap_years,evidence_level,year_source,rule_version,note) VALUES (3,2,'C1',2024,2023,1,'Confirmed','external_actual','A_base_060','candidate_id=13e6e69c35f7e737');
-INSERT INTO mobility_event(event_id,scholar_id,event_type,paper_year,actual_year,gap_years,evidence_level,year_source,rule_version,note) VALUES (4,3,'C2',1992,1991,1,'Confirmed','external_actual','A_base_060','candidate_id=7a2374626400ffaf');
-INSERT INTO mobility_event(event_id,scholar_id,event_type,paper_year,actual_year,gap_years,evidence_level,year_source,rule_version,note) VALUES (5,3,'C1',1997,1996,1,'Confirmed','external_actual','A_base_060','candidate_id=0ef4b8c8034e2caa');
-INSERT INTO mobility_event(event_id,scholar_id,event_type,paper_year,actual_year,gap_years,evidence_level,year_source,rule_version,note) VALUES (6,3,'C1',2003,2002,1,'Confirmed','external_actual','A_base_060','candidate_id=a2ac90528e561714');
+-- 9) 6 条有效迁移事件（A轨）
+--    起止机构/国家与 三人小样_AGE投影.sql 第 10/11 段显式映射逐条一致，
+--    使 3.3 节的履历覆盖 UPDATE（cf.institution_id IN (e.from_inst,e.to_inst)）可以执行。
+INSERT INTO mobility_event(event_id,scholar_id,event_type,paper_year,actual_year,gap_years,from_inst,to_inst,from_country,to_country,evidence_level,year_source,rule_version,note) VALUES (1,1,'C1',1986,NULL,1,2,3,'CA','CA','Possible','signature_proxy','A_base_060','candidate_id=ef533ea9567a0ad8');
+INSERT INTO mobility_event(event_id,scholar_id,event_type,paper_year,actual_year,gap_years,from_inst,to_inst,from_country,to_country,evidence_level,year_source,rule_version,note) VALUES (2,1,'C1',2007,NULL,1,3,2,'CA','CA','Possible','signature_proxy','A_base_060','candidate_id=8cb677ab7de247f1');
+INSERT INTO mobility_event(event_id,scholar_id,event_type,paper_year,actual_year,gap_years,from_inst,to_inst,from_country,to_country,evidence_level,year_source,rule_version,note) VALUES (3,2,'C1',2024,2023,1,8,7,'US','US','Confirmed','external_actual','A_base_060','candidate_id=13e6e69c35f7e737');
+INSERT INTO mobility_event(event_id,scholar_id,event_type,paper_year,actual_year,gap_years,from_inst,to_inst,from_country,to_country,evidence_level,year_source,rule_version,note) VALUES (4,3,'C2',1992,1991,1,9,4,'GB','US','Confirmed','external_actual','A_base_060','candidate_id=7a2374626400ffaf');
+INSERT INTO mobility_event(event_id,scholar_id,event_type,paper_year,actual_year,gap_years,from_inst,to_inst,from_country,to_country,evidence_level,year_source,rule_version,note) VALUES (5,3,'C1',1997,1996,1,4,10,'US','US','Confirmed','external_actual','A_base_060','candidate_id=0ef4b8c8034e2caa');
+INSERT INTO mobility_event(event_id,scholar_id,event_type,paper_year,actual_year,gap_years,from_inst,to_inst,from_country,to_country,evidence_level,year_source,rule_version,note) VALUES (6,3,'C1',2003,2002,1,10,11,'US','US','Confirmed','external_actual','A_base_060','candidate_id=a2ac90528e561714');
 SELECT setval(pg_get_serial_sequence('mobility_event','event_id'),6);
 
--- 7) 外部履历事实（B时间差诊断，4条；来源均为真实URL）
-INSERT INTO career_fact(fact_id,scholar_id,fact_year,source_type,source_url,verified,note) VALUES (1,2,2023,'award','https://fi.edu/en/awards/laureates/john-p-perdew 正式获奖传记：Tulane returned in 2023; Temple 2013–2023',true,'candidate_id=13e6e69c35f7e737 署名年=2024');
-INSERT INTO career_fact(fact_id,scholar_id,fact_year,source_type,source_url,verified,note) VALUES (2,3,1991,'award','https://www-personal.umich.edu/~mejn/Newman_CV.pdf 第1页 Employment；同方向转换且年差1年',true,'candidate_id=7a2374626400ffaf 署名年=1992');
-INSERT INTO career_fact(fact_id,scholar_id,fact_year,source_type,source_url,verified,note) VALUES (3,3,1996,'award','https://www-personal.umich.edu/~mejn/Newman_CV.pdf 第1页 Employment；同方向转换且年差1年',true,'candidate_id=0ef4b8c8034e2caa 署名年=1997');
-INSERT INTO career_fact(fact_id,scholar_id,fact_year,source_type,source_url,verified,note) VALUES (4,3,2002,'award','https://www-personal.umich.edu/~mejn/Newman_CV.pdf 第1页 Employment；同方向转换且年差1年',true,'candidate_id=a2ac90528e561714 署名年=2003');
+-- 10) 外部履历事实（B时间差诊断，4条）
+--     source_url 只放纯 URL；原来的中文说明移入 note。source_type 与图投影一致：
+--     第 1 条为获奖页(award)，第 2-4 条为官方 CV(cv)。sha256 / http_status 未随小样迁移，留空。
+INSERT INTO career_fact(fact_id,scholar_id,fact_year,institution_id,country_code,source_type,source_url,verified,note) VALUES (1,2,2023,7,'US','award','https://fi.edu/en/awards/laureates/john-p-perdew',true,'正式获奖传记：Tulane returned in 2023; Temple 2013–2023；candidate_id=13e6e69c35f7e737 署名年=2024');
+INSERT INTO career_fact(fact_id,scholar_id,fact_year,institution_id,country_code,source_type,source_url,verified,note) VALUES (2,3,1991,4,'US','cv','https://www-personal.umich.edu/~mejn/Newman_CV.pdf',true,'第1页 Employment；同方向转换且年差1年；candidate_id=7a2374626400ffaf 署名年=1992');
+INSERT INTO career_fact(fact_id,scholar_id,fact_year,institution_id,country_code,source_type,source_url,verified,note) VALUES (3,3,1996,10,'US','cv','https://www-personal.umich.edu/~mejn/Newman_CV.pdf',true,'第1页 Employment；同方向转换且年差1年；candidate_id=0ef4b8c8034e2caa 署名年=1997');
+INSERT INTO career_fact(fact_id,scholar_id,fact_year,institution_id,country_code,source_type,source_url,verified,note) VALUES (4,3,2002,11,'US','cv','https://www-personal.umich.edu/~mejn/Newman_CV.pdf',true,'第1页 Employment；同方向转换且年差1年；candidate_id=a2ac90528e561714 署名年=2003');
 SELECT setval(pg_get_serial_sequence('career_fact','fact_id'),4);
 
--- 8) 分类结果：A轨 + B轨(0.5/0.7) 共 9 行；Becke/Perdew 的 formal_class 保持 NULL
+-- 11) 分类结果：A轨 + B轨(0.5/0.7) 共 9 行；Becke/Perdew 的 formal_class 保持 NULL
 INSERT INTO mobility_class(scholar_id,rule_version,D,I,S,observed_class,formal_class,is_classified,uncertainty_reason) VALUES (1,'A_base_060',1,0,1,'M6',NULL,false,'已识别阳性指标保留；Possible、并列或缺失可能影响阴性指标，不将未识别=确定无流动');
 INSERT INTO mobility_class(scholar_id,rule_version,D,I,S,observed_class,formal_class,is_classified,uncertainty_reason) VALUES (2,'A_base_060',1,0,1,'M6',NULL,false,'已识别阳性指标保留；Possible、并列或缺失可能影响阴性指标，不将未识别=确定无流动');
 INSERT INTO mobility_class(scholar_id,rule_version,D,I,S,observed_class,formal_class,is_classified,uncertainty_reason) VALUES (3,'A_base_060',1,1,1,'M8','M8',true,'各维度已有足够阳性证据，缺失不会改变已确认存在的组合');
@@ -334,4 +365,5 @@ INSERT INTO mobility_class(scholar_id,rule_version,D,I,S,observed_class,formal_c
 
 COMMIT;
 
--- 验证：预期 3 学者 / 11 机构 / 139 面板行 / 126 占比行 / 6 事件 / 4 履历 / 9 分类
+-- 验证：预期 3 原始名单行 / 3 学者 / 11 机构 / 139 面板行 / 126 占比行 / 6 事件 / 4 履历 / 9 分类。
+-- 完整核对请执行 verify_poc.sql。

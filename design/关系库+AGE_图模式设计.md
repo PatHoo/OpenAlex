@@ -1,8 +1,10 @@
 # 科学家空间流动数据库：关系库 + Apache AGE 图模式设计
 
-版本：v1.0 · 2026-11-21
+版本：v1.1 · 2026-11-21（修复文档与可执行脚本不一致）
 适用范围：OpenAlex 高被引科学家机构隶属—空间流动数据库，第一期（数据地基）与第二期（事件引擎）
-配套脚本：`schema.sql`（本文所有 DDL 的可执行版本）
+配套脚本：`schema.sql`（本文所有 DDL 的可执行版本）、`三人小样_seed.sql`、`三人小样_AGE投影.sql`、`verify_poc.sql`（导入后核对）
+
+> v1.1 修复：表数量 18→22；C5 消解 SQL 改用真实的 `from_alias_id` → `institution_alias.raw_name` 连接；`event_evidence.criterion` 枚举、`class_rule` / `mobility_class` 主键描述对齐 DDL；明确"目标图模式"与"小样已实现图模式"的差异；`drop_graph` 重建增加存在性判断。
 
 ---
 
@@ -43,7 +45,7 @@ OpenAlex / ROR / ORCID / Crossref
 
 ## 2. 关系库表结构（PostgreSQL 16）
 
-共 18 张表，分五组。完整可建表脚本见 `schema.sql`。
+共 22 张表，分六组（字典、身份、作品、面板、事件证据、日志与分析）。完整可建表脚本见 `schema.sql`。
 
 ### 2.1 身份与名单（source / identity）
 
@@ -69,7 +71,7 @@ OpenAlex / ROR / ORCID / Crossref
 | `country` | `country_code` | `name_zh`, `name_en`, `iso3` | 国家字典 |
 | `institution` | `institution_id` | `ror_id` UNIQUE, `canonical_name`, `country_code`, `city`, `lat`, `lon`, `parent_id` | ROR 归一机构；城市经纬度供地图 |
 | `institution_alias` | `alias_id` | `raw_name`, `institution_id`, `status`∈{confirmed,proposed,unresolved}, `evidence_url`, `sha256` | C5 的关键表。112 条"可能名称变化"先落 `proposed`，不证实不改判 |
-| `institution_rename` | `rename_id` | `from_alias`, `to_alias`, `same_ror_id`, `verified`, `observed_year` | 改名链；`same_ror_id=true` 时明确不计迁移 |
+| `institution_rename` | `rename_id` | `from_alias_id` → `institution_alias(alias_id)`, `to_institution_id` → `institution(institution_id)`, `same_ror_id`, `verified`, `observed_year` | 改名链；`same_ror_id=true` 时明确不计迁移。注意起点是**别名 ID**，不是机构 ID |
 
 ### 2.4 面板与占比（panel）
 
@@ -83,17 +85,19 @@ OpenAlex / ROR / ORCID / Crossref
 | 表 | 主键 | 关键字段 | 说明 |
 |---|---|---|---|
 | `mobility_event` | `event_id` | `scholar_id`, `event_type`∈{C1..C5}, `paper_year`, `actual_year`, `gap_years`, `from_inst`, `to_inst`, `from_country`, `to_country`, `status`∈{pending,confirmed,not_sustained}, `evidence_level`∈{Confirmed,Probable,Possible,Rejected}, `year_source`∈{signature_proxy,external_actual}, `rule_version`, `is_suppressed`, `suppressed_by` | 事件主表。`rule_version` 参与唯一约束，A/B 不互覆盖 |
-| `event_evidence` | `evidence_id` | `event_id`, `criterion`∈{two_year_dominant,share_60,min3works,external_cv}, `passed`, `measured_value`, `threshold`, `source_url`, `source_sha256`, `http_status` | 三指标 + 外部履历逐条落账，B 轨复用 A 的 evidence_id |
+| `event_evidence` | `evidence_id` | `event_id`, `criterion`∈{two_year_dominant,share_threshold,min3works,external_cv,tie_policy}, `passed`, `measured_value`, `threshold`, `source_url`, `source_sha256`, `http_status`, `rule_version` | 三指标 + 并列检查 + 外部履历逐条落账；已导入 30 行（6 事件 × 5 判据），阈值写在 `threshold` 列（A=0.60、B50=0.50、B70=0.70），枚举值不随阈值变化 |
 | `career_fact` | `fact_id` | `scholar_id`, `fact_year`, `institution_id`, `country_code`, `source_type`∈{cv,orcid,homepage,award}, `source_url`, `sha256`, `verified` | 外部履历。±2 年匹配后以 `fact_year` 覆盖论文年 |
-| `mobility_class` | `(scholar_id, rule_version)` | `D`, `I`, `S`, `observed_class`, `formal_class`, `is_classified`, `uncertainty_reason` | `formal_class` 允许 NULL——Becke/Perdew 的情况正式字段必须留空，只在 `observed_class` 写 M6 |
-| `class_rule` | `(d,i,s)` | `class_code`∈{M1..M8}, `label_zh`, `source_section` | D/I/S 到八类的映射表。**具体映射须从方案 8.5 节回填**，本文不臆造未知组合；仅已知 `D=1,I=1,S=1 → M8` |
+| `mobility_class` | `classification_id`（代理主键）+ `UNIQUE(scholar_id, rule_version)` | `D`, `I`, `S`, `observed_class`, `formal_class`, `is_classified`, `uncertainty_reason` | `formal_class` 允许 NULL——Becke/Perdew 的情况正式字段必须留空，只在 `observed_class` 写 M6 |
+| `class_rule` | `(d_flag, i_flag, s_flag)` | `class_code`∈{M1..M8}, `label_zh`, `source_section` | D/I/S 到八类的映射表。**具体映射须从方案 8.5 节回填**，本文不臆造未知组合；仅已知 `D=1,I=1,S=1 → M8` |
+
+`event_evidence` 的可执行种子为 `event_evidence_seed.sql`（`evidence_id` 1..30，幂等）。`two_year_dominant` 与 `min3works` 的 `measured_value` 分别来自 `validation_years` 与 `support_work_ids` 的数量；`share_threshold` 用 `auto_grade=Probable` 判定通过，原表没有逐事件份额值，故 `measured_value` 留空，B50/B70 的敏感性结果记在 `note`；`tie_policy` 依据关系库 `annual_panel` 的事件年与前一年 `primary_is_tie=false`；`external_cv` 的 4 条有履历证据、2 条明确未找到，仅 Perdew 的 URL 在 `api_request` 中有 sha256/HTTP 状态可关联，其余留空。
 
 ### 2.6 抓取日志与分析
 
 | 表 | 主键 | 说明 |
 |---|---|---|
-| `api_request` | `request_id` | 65 条请求原型：URL、时间戳、状态码、sha256、字节数、后端路径（对应 `/srv/catsco-agent/work/...`）、429/401 错误码 |
-| `rule_test` | `(test_name, rule_version)` | 19 项规则测试结果，含 `test_c1`、`test_c2_suppresses_c1`、`test_threshold_boundary` 等 |
+| `api_request` | `request_id` | 220 条请求：64 条基线（URL/时间戳/状态 200×62、401×1、404×1/sha256/字节数）+ 156 条 Crossref 补查（URL 按 DOI 推导、状态 200×117/429×9/301×4/404×26、`backend_path` 取原表 `raw_path`）；无原始值的字段留空 |
+| `rule_test` | `(test_name, rule_version)` | 19 项规则测试结果，全部 `passed`；原始 JSON 存 `detail`，见 `rule_test_seed.sql` |
 | `cohort_member` | `scholar_id` | "中国出生、现居美国"队列：`birth_evidence`, `determination_method`, `confidence`, `reviewed_by` |
 | `did_panel` | `(scholar_id, year)` | DID 用面板：`treated`, `post`(2018+), `outcome_moves`, `covariates`(JSONB) |
 
@@ -132,10 +136,13 @@ LOCF 填充年用单独写入并设置 `is_imputed=true, observation_status='imp
 
 ```sql
 -- Step 0：C5 改名消解——同一 ROR 的名称变化先归一化，不产生迁移
+-- institution_rename 的起点是别名 ID，因此必须经 institution_alias 把原始署名串连上
 UPDATE authorship a SET matched_institution_id = r.to_institution_id
 FROM institution_rename r
+JOIN institution_alias al ON al.alias_id = r.from_alias_id
 WHERE r.verified=true AND r.same_ror_id=true
-  AND a.matched_institution_id = r.from_institution_id;
+  AND a.raw_affiliation = al.raw_name
+  AND a.matched_institution_id IS DISTINCT FROM r.to_institution_id;
 
 -- Step 1：候选事件（禁止 imputed 年入内）
 CREATE VIEW v_event_candidate AS
@@ -182,7 +189,7 @@ C4 三态由持续性决定：首年 `pending`；次年 `prev_country` 仍在 `s
 -- 三指标（阈值参数化，A=0.60，B50=0.50，B70=0.70）
 INSERT INTO event_evidence (event_id, criterion, passed, measured_value, threshold, rule_version)
 SELECT e.event_id, 'two_year_dominant',
-       (p.primary_is_tie=false AND p2.primary_is_tie=false
+       (coalesce(p.primary_is_tie,false)=false AND coalesce(p2.primary_is_tie,false)=false
         AND p.primary_institution_id=p2.primary_institution_id),
        2, 2, e.rule_version
 FROM mobility_event e
@@ -222,6 +229,8 @@ CREATE TRIGGER trg_a_immutable BEFORE UPDATE OR DELETE ON mobility_event
 ## 4. AGE 图模式
 
 ### 4.1 图与标签
+
+> **目标模式 vs 小样实现**：下方 DDL 是**目标模式**（7 类顶点、14 种边）。`三人小样_AGE投影.sql` 只实现其中 **5 类顶点（Scholar / Institution / Country / CareerFact / Event）与 9 种边**，暂缺 `Work`、`Alias` 节点及 `AUTHORED`、`SIGNED_AT`、`RENAMED_TO`、`IN_COHORT` 边；小样额外使用 `HAS_FACT` 边连接学者与履历，目标模式中等价关系由 `CORROBORATED_BY` 表达。两者并存不冲突，但不能把目标模式当成已跑通的图查询结果。
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS age;
@@ -353,7 +362,7 @@ ORDER BY collaborators DESC LIMIT 20;
 2. **增量更新**：`mobility_event` 新增行 → 只投影对应 Event 节点与 5 条关联边；`annual_panel` 变更 → 删除并重插该学者的 AFFILIATED 边（AGE 没有 UPSERT，先 `DETACH DELETE` 相关边再 CREATE）。
 3. **批量装载**：SQL 侧用 `jsonb_agg` 聚合行，Cypher 侧 `UNWIND $rows AS row CREATE ...`，避免逐行调用。
 4. **一致性校验**：每晚跑一次对账——关系库 `count(*)` 与图中 `MATCH (n:Event) RETURN count(n)` 比对，不一致即触发全量重建。
-5. **重建脚本**：`drop_graph('mobility', true)` → 重建标签 → 重跑投影。**丢弃图是安全操作**，因为真相源在关系库。
+5. **重建脚本**：先判断 `ag_catalog.ag_graph` 中是否存在 `mobility`，存在才 `drop_graph('mobility', true)` → 重建标签 → 重跑投影。**丢弃图是安全操作**，因为真相源在关系库；但不要同时取消 `schema.sql` Part 7 的注释，否则标签会被创建两次。
 
 ```cypher
 // 批量边投影示意（params 由 SQL 的 jsonb_agg 生成）
@@ -390,7 +399,7 @@ CREATE (s)-[:AFFILIATED {
 3. **并发写**：AGE 的 CREATE 在可重复读隔离下可能报序列化失败。采用单写者批量投影，禁止多进程同时写图。
 4. **边必须有标签**：创建边时不能省略标签；顶点可多标签，边只能一个标签。
 5. **数值类型**：agtype 中整数与浮点区分，`share=0.6` 要写成 `0.6` 而非 `60`；百分比统一用 0–1 小数存储。
-6. **A 轨不可变**：触发器是最后防线，真正保障来自"B 只 INSERT 不 UPDATE"的应用约定与代码审查。
+6. **A 轨不可变**：触发器是最后防线，真正保障来自"B 只 INSERT 不 UPDATE"的应用约定与代码审查。本仓库目前没有应用层代码，因此该约束实际上只由数据库触发器承担；全量实施时必须补上应用层校验。
 7. **出生国不确定**：`birth_country_hint` 不是可靠字段。"中国出生"筛查必须走 `cohort_member` 的人工复核列，否则 DID 的处理组定义会被质疑。
 
 ---
@@ -401,6 +410,7 @@ CREATE (s)-[:AFFILIATED {
 
 | Excel sheet | 目标表 |
 |---|---|
+| `Table-S1-career-2017.xlsx` 的 `Career` 表 | `source_scholar`（`src_id` 取 `original_row`，`source_row` 取 S 编号，原始 3 字母国家码存进 `raw_payload`） |
 | `A身份映射` | `scholar` + `identity_map` + `name_variant` |
 | `A生涯汇总` / `B生涯对照` | `mobility_class`（按 rule_version 分两批写入） |
 | `A最终有效迁移时间表` / `B时间差诊断` | `mobility_event` + `event_evidence` + `career_fact` |
@@ -409,6 +419,8 @@ CREATE (s)-[:AFFILIATED {
 | `规则测试` | `rule_test` |
 | `A DOI去重记录` | `doi_duplicate` |
 | `A轨迹_*` | 投影验证集：与图查询结果逐格比对 |
+
+`api_request` 有两份可执行种子，均按显式 `request_id` 幂等写入：`api_request_seed.sql`（1..64，来自 `A基线请求清单`）与 `api_request_crossref_seed.sql`（65..220，来自 `A补查Crossref`）。基线清单未给出逐条 `backend_path` / `error_code`，最后 4 条请求 `bytes` 为空，保留 NULL；补查表无时间戳、sha256、字节数，也保留 NULL。补查请求的 URL 按用户确认规则由 DOI 推导为 `https://api.crossref.org/works/{percent-encoded-doi}`，DOI 中 `< > # ; ( )` 等字符做百分号编码，`/` 保留。原文 DOI 存于 `payload->>'doi'`。
 
 三名学者的 `formal_class` 必须按原样保留 NULL（Becke、Perdew），不得因迁移而"补全"。
 

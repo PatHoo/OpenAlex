@@ -2,10 +2,25 @@
 -- 科学家空间流动数据库 · 关系库 + Apache AGE 模式
 -- PostgreSQL 16 + PostGIS 3 + AGE 1.x
 -- 生成日期：2026-11-21
--- 执行顺序：本文件 Part 1-6 为关系库；Part 7 为 AGE 图（需扩展可用）
+-- 执行顺序：本文件 Part 1-6c 为关系库；Part 7 仅为 AGE 目标模式说明。
+-- 小样图投影请执行 三人小样_AGE投影.sql，不要再取消 Part 7 注释，以免标签重复创建。
 -- ============================================================
 
-CREATE EXTENSION IF NOT EXISTS postgis;
+-- PostGIS 仅用于未来几何字段；当前 schema 未使用几何类型。
+-- AGE 官方镜像不一定带 PostGIS，因此仅在扩展可用时安装，避免阻断建表。
+DO $ext$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'postgis') THEN
+        BEGIN
+            CREATE EXTENSION IF NOT EXISTS postgis;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE NOTICE 'postgis 扩展存在但无法加载（%），已跳过；当前 schema 未使用几何类型。', SQLERRM;
+        END;
+    ELSE
+        RAISE NOTICE 'postgis 扩展不可用，已跳过；当前 schema 未使用几何类型。';
+    END IF;
+END
+$ext$;
 
 -- ---------- Part 1: 字典 ----------
 CREATE TABLE country (
@@ -154,6 +169,25 @@ CREATE TABLE annual_panel (
     note                   TEXT,
     PRIMARY KEY (scholar_id, year)
 );
+
+-- 数组列无法直接建外键：用触发器保证 secondary_countries 中每个代码都在 country 字典中。
+-- 这样 C3/地图按国家维度统计时不会因 CH/DE/FR/PT/SI/HU/IE/CN 等代码漏连接。
+CREATE OR REPLACE FUNCTION validate_panel_secondary_countries() RETURNS trigger AS $$
+BEGIN
+    IF NEW.secondary_countries IS NOT NULL AND EXISTS (
+        SELECT 1 FROM unnest(NEW.secondary_countries) AS c(code)
+        WHERE NOT EXISTS (SELECT 1 FROM country WHERE country_code = c.code)
+    ) THEN
+        RAISE EXCEPTION 'unknown country code in annual_panel.secondary_countries: %',
+                        NEW.secondary_countries;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_panel_secondary_countries
+BEFORE INSERT OR UPDATE OF secondary_countries ON annual_panel
+FOR EACH ROW EXECUTE FUNCTION validate_panel_secondary_countries();
 
 CREATE TABLE affiliation_share (
     scholar_id    BIGINT NOT NULL REFERENCES scholar(scholar_id),
@@ -355,7 +389,9 @@ WHERE primary_country IS DISTINCT FROM prev_country
    OR primary_institution_id IS DISTINCT FROM prev_inst
    OR cardinality(secondary_countries) > 0;
 
--- ---------- Part 7: Apache AGE 图模式 ----------
+-- ---------- Part 7: Apache AGE 目标模式（仅说明，默认不执行） ----------
+-- 这是目标设计（7 类顶点 / 14 种边）。三人小样实际只建 5 类顶点 / 9 种边，
+-- 由 三人小样_AGE投影.sql 完成；两套标签定义不要同时执行。
 -- 前置条件：已安装 AGE 扩展。若在 psql 中执行，先运行：
 --   CREATE EXTENSION IF NOT EXISTS age;
 --   LOAD 'age';
