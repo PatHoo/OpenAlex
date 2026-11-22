@@ -190,7 +190,7 @@
           <button class="btn btn-primary" id="btn-key">保存 Key</button>
         </div>
         <div class="hint">
-          Key 为<strong>可选</strong>：不填也能匿名抓取，但额度低、速度慢、易被限流。建议填 key。
+          Key 为<strong>可选</strong>，但<strong>强烈建议设置</strong>：匿名模式每人最多只能抓 100 篇作品（OpenAlex 限制匿名翻页），且额度低、易限流。
           免费 key 每天 $1 额度（约 1 万次检索）、30 请求/秒。前往
           <a href="https://openalex.org/signup" target="_blank">openalex.org/signup</a> 注册，
           再到 <a href="https://openalex.org/settings/api-key" target="_blank">设置页</a> 复制，并到邮箱点激活链接。
@@ -439,6 +439,15 @@ async function oaGet(path, params){
     catch(e){ if(attempt<MAX_RETRIES){ await sleep(BACKOFF_BASE**(attempt+1)*1000); continue; } return null; }
     requestCount++;
     if(resp.status === 200){ return await resp.json(); }
+    // 401：匿名模式下 cursor 翻页需要 key（OpenAlex 限制）
+    if(resp.status === 401){
+      let msg = "";
+      try { const j=await resp.json(); msg=j.message||j.error||""; } catch(e){}
+      if(msg.includes("cursor") || msg.includes("API key")){
+        throw new Error("CURSOR_REQUIRES_KEY");
+      }
+      return null;
+    }
     // 429 / 403 / 5xx
     if(resp.status===429 || resp.status===403 || resp.status>=500){
       let code=null;
@@ -479,8 +488,21 @@ async function wp2FetchWorks(src, authorId, maxWorks){
   const perPage = maxWorks ? Math.min(PER_PAGE, maxWorks) : PER_PAGE;
   while(true){
     if(runner.stop) throw new Error("MANUAL_STOP");
-    const data = await oaGet("works", { filter:`authorships.author.id:${bareId}`,
-      "per-page":perPage, cursor, select:WORK_SELECT });
+    let data;
+    try{
+      data = await oaGet("works", { filter:`authorships.author.id:${bareId}`,
+        "per-page":perPage, cursor, select:WORK_SELECT });
+    }catch(e){
+      if(e.message==="CURSOR_REQUIRES_KEY"){
+        // 匿名模式：cursor 翻页需要 key。第 1 页已抓到，优雅降级。
+        if(page>0){
+          addLog("warn",`src_id=${src.src_id} 匿名模式只能抓前 ${out.length} 篇（第1页），设置 key 可抓全量`);
+          break;
+        }
+        throw new Error(`src_id=${src.src_id} 匿名模式翻页需 API key（设置 key 后可抓全量）`);
+      }
+      throw e;
+    }
     if(data===null) throw new Error(`src_id=${src.src_id} 第${page+1}页作品请求失败`);
     const results = data.results||[];
     for(const w of results) out.push({ src_id:src.src_id, oa_author_id:authorId, work:w });
@@ -609,7 +631,7 @@ $("btn-run").onclick = async ()=>{
   const mw = ($("maxworks").value||"").trim();
   const maxWorks = mw ? parseInt(mw) : null;
   if(!apiKey){
-    addLog("warn","未设置 API key，将以匿名模式抓取（额度低、速度慢，建议设置 key）");
+    addLog("warn","未设置 API key，将以匿名模式抓取：每人最多抓 100 篇作品（翻页需 key），建议设置 key 抓全量");
   }
   addLog("info",`启动抓取：${roster.length} 人`);
   runFetch(topN, maxWorks);
