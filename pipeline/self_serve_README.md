@@ -38,6 +38,14 @@ python fetch_server.py
 
 浏览器打开 **http://127.0.0.1:8765**，按页面四步走即可。
 
+**想直接让下游分析链读同一目录**（省去手动拷贝），启动时指定 batch：
+
+```bash
+python fetch_server.py --batch batch_001   # 抓取结果直接写入 data/batch_001/
+```
+
+默认写 `data/self_serve/`；指定 `--batch <名>` 则写 `data/<名>/`，与 WP3 起分析脚本读的 `DEFAULT_BATCH` 目录对齐。
+
 ## 三、抓取方式与路径（固定的口径）
 
 | 项 | 口径 |
@@ -70,7 +78,59 @@ python fetch_server.py
 - key 只存内存（除非勾选"保存到本机"），写进 `.self_serve_key`，**不写请求留痕、不写日志**
 - 抓到的原始数据（works/candidates/requests）客户自行保留，也可交回我们跑 WP3–WP16 落库分析
 
-## 六、边界
+## 六、抓回数据后，如何接续分析（WP3–WP16）
 
-- 本工具只做「抓取」，不做消歧定案、事件引擎、DID 分析（那些在 WP3–WP16，需要 PostgreSQL）
+自助工具只做「抓取」（WP1+WP2），产出四个文件在 `data/self_serve/`：
+
+| 文件 | 内容 | 对应下游 |
+|---|---|---|
+| `works.jsonl` | 每作品一行（含 authorships/机构） | WP3 入库、WP5 署名、WP6 机构 |
+| `candidates.jsonl` | 每人 top-5 身份候选 | WP4 消歧定案 |
+| `requests.jsonl` | 请求留痕 | 导入 `api_request` 表 |
+| `checkpoint.json` | 断点（src_id 完成态） | 续跑 |
+
+### 接续步骤
+
+**第 0 步：把抓取结果放到标准 batch 目录**
+
+自助工具默认写 `data/self_serve/`，而分析链 WP3 起读 `data/batch_001/`（由 `config.py` 的 `DEFAULT_BATCH` 决定）。二选一：
+
+- 方式 A（推荐）：客户把 `self_serve/` 里的四个文件拷进一个 batch 目录，例如
+  ```bash
+  mkdir -p pipeline/data/client_batch
+  cp pipeline/data/self_serve/{works.jsonl,candidates.jsonl,requests.jsonl,checkpoint.json} pipeline/data/client_batch/
+  ```
+- 方式 B：改 `config.py` 的 `DEFAULT_BATCH = "self_serve"`（或新增一个 batch 名），后续脚本直接读该目录。
+
+**第 1 步起，跑完整落库与分析链（需 PostgreSQL + PostGIS，见 `pipeline/README.md`）**：
+
+```bash
+python wp3_import_works.py          # works.jsonl → work 表（按 openalex_id 去重）
+python wp4_analyze_candidates.py    # 候选信号分析
+python wp4_disambiguate.py          # 消歧分级 A/B/HOLD/DUP（需人工确认口径）
+python wp4_load_decisions.py        # 定案幂等落库
+python wp5_import_authorship.py     # 署名落库
+python wp6_extract_institutions.py  # 抽机构/ROR/别名
+python wp7_load_institutions.py     # 机构入库
+python wp8_backfill_institution.py  # 回填 matched_institution_id
+python wp9_build_panel.py           # 年度面板 + 机构占比
+python wp10_event_engine.py         # C1–C5 事件 + 证据
+python wp11_classify.py             # D/I/S → M1–M8 分类
+python wp13_cohort_screen.py        # 中国背景候选队列
+python wp15_external_evidence.py    # 外部出生国证据（需人工核公开来源）
+python wp14_did.py                  # DID 面板与估计
+python wp16_did_robust.py           # 聚类稳健 SE + 平行趋势联合 F
+```
+
+> 完整运行顺序、断点续跑、环境准备与踩坑见 `pipeline/README.md`。
+
+### 交付方式建议
+
+- 客户只负责第 0 步之前的「抓取」，把 `works.jsonl` 等原始文件交回；
+- 我们负责第 1 步之后的「落库 + 消歧 + 分析」，出面板、事件、分类、DID 结果。
+- 这样额度与磁盘成本在客户侧，分析能力与口径在我们侧，责任清晰。
+
+## 七、边界
+
+- 本工具只做「抓取」（WP1+WP2），不做消歧定案、事件引擎、DID 分析（那些在 WP3–WP16，需要 PostgreSQL）
 - 预置名单为 Elsevier 2017 高被引名单，版权与使用范围由客户自行确认

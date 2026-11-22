@@ -16,6 +16,7 @@
 """
 from __future__ import annotations
 
+import argparse
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -30,8 +31,7 @@ from fetch_service import (
 )
 
 ROOT = Path(__file__).resolve().parent
-WORKDIR = ROOT / "data" / "self_serve"
-WORKDIR.mkdir(parents=True, exist_ok=True)
+DEFAULT_WORKDIR = ROOT / "data" / "self_serve"
 
 KEY_CACHE = ROOT / ".self_serve_key"  # 可选本地缓存（仅当用户勾选保存）
 
@@ -39,6 +39,9 @@ state = RunState()
 runner: FetchRunner | None = None
 runner_thread: threading.Thread | None = None
 _key: str = ""
+
+# 工作目录由启动参数决定；存到模块级变量，供 Handler 读取
+WORKDIR = DEFAULT_WORKDIR
 
 
 def _cached_key() -> str:
@@ -183,10 +186,24 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    host = "127.0.0.1"
-    port = 8765
-    server = HTTPServer((host, port), Handler)
-    print(f"[self-serve] 已启动：http://{host}:{port}")
+    global WORKDIR
+    ap = argparse.ArgumentParser(description="客户自助抓取本地服务")
+    ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument(
+        "--batch",
+        default=None,
+        help="数据输出 batch 名（相对 pipeline/data/，如 batch_001 或 self_serve）。"
+             "默认 self_serve；指定 batch_001 则与下游 WP3 分析链同目录，抓完可直接跑分析。",
+    )
+    args = ap.parse_args()
+
+    if args.batch:
+        WORKDIR = ROOT / "data" / args.batch
+    WORKDIR.mkdir(parents=True, exist_ok=True)
+
+    server = HTTPServer((args.host, args.port), Handler)
+    print(f"[self-serve] 已启动：http://{args.host}:{args.port}")
     print(f"[self-serve] 数据目录：{WORKDIR}")
     try:
         server.serve_forever()
