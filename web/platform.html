@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpenAlex 科研分析平台 · 第二期 MVP</title>
+<title>OpenAlex 科研分析平台 · 第二期 DEMO</title>
 <style>
   :root{
     --bg:#f5f7fb; --card:#ffffff; --ink:#1f2937; --muted:#64748b; --line:#e2e8f0;
@@ -78,22 +78,37 @@
   #map{width:100%;height:100%}
   pre{white-space:pre-wrap;word-break:break-word;background:#0f172a;color:#e2e8f0;padding:16px;border-radius:10px;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;max-height:460px;overflow:auto}
   .footer{margin-top:32px;color:var(--muted);font-size:11.5px;text-align:center}
+  .demo-badge{display:none;background:#1e40af;color:#fff;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.5px}
+  body.demo-on .demo-badge{display:inline-block}
+  .demo-bar{position:fixed;left:0;right:0;bottom:0;z-index:50;background:#0f172a;color:#e2e8f0;box-shadow:0 -8px 30px rgba(15,23,42,.25);padding:14px 28px;display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+  .demo-bar[hidden]{display:none!important}
+  .demo-bar .meta{min-width:150px}
+  .demo-bar .step{font-size:11px;color:#93c5fd;letter-spacing:.5px}
+  .demo-bar .title{font-size:15px;font-weight:700;margin-top:2px}
+  .demo-bar .text{flex:1;min-width:320px;font-size:12.5px;line-height:1.7;color:#cbd5e1}
+  .demo-bar .ops{display:flex;gap:8px;flex-wrap:wrap}
+  .demo-bar button{background:#1e293b;color:#e2e8f0;border-color:#334155;padding:6px 11px;font-size:12px}
+  .demo-bar button:hover{border-color:#60a5fa;color:#fff}
+  .demo-bar button.primary{background:#2563eb;border-color:#2563eb;color:#fff}
+  body.demo-on main{padding-bottom:150px}
+  @media(max-width:900px){.demo-bar{padding:12px 16px;gap:10px}.demo-bar .text{min-width:100%}}
 </style>
 </head>
 <body>
 <header>
   <div>
-    <h1>OpenAlex 科研分析平台 <span class="muted" style="font-size:13px;font-weight:400">/ 第二期 MVP</span></h1>
+    <h1>OpenAlex 科研分析平台 <span class="muted" style="font-size:13px;font-weight:400">/ 第二期 DEMO</span> <span class="demo-badge">DEMO</span></h1>
     <div class="sub">Migration analytics · Cohort screening · DID inference · Report assistant</div>
   </div>
   <div class="actions">
     <span class="muted small" id="gen-time"></span>
+    <button class="primary" onclick="startDemo()">演示导览</button>
     <button onclick="window.print()">打印 / 导出 PDF</button>
   </div>
 </header>
 
 <div class="scope" id="scope-banner">
-  数据口径：基于 <b>1,000 人试跑</b> 的可复算快照。事件年份多为署名代理年，队列为算法候选层；本平台用于方法展示与内部复核，<b>不等同于全量 20 万学者轨迹库交付</b>。
+  第二期 DEMO｜数据口径：基于 <b>1,000 人试跑</b> 的可复算快照。事件年份多为署名代理年，队列为算法候选层；本演示用于展示第二期范围与工程能力，<b>不等同于全量 20 万学者轨迹库交付</b>。
 </div>
 
 <nav id="nav">
@@ -260,6 +275,17 @@
   <div class="footer">OpenAlex 科研分析平台 · 第二期 MVP · 数据快照 <span id="gen-time-foot"></span></div>
 </main>
 
+<div class="demo-bar" id="demo-bar" hidden>
+  <div class="meta"><div class="step" id="demo-step">1 / 8</div><div class="title" id="demo-title"></div></div>
+  <div class="text" id="demo-text"></div>
+  <div class="ops">
+    <button onclick="demoPrev()">上一步</button>
+    <button class="primary" onclick="demoNext()">下一步</button>
+    <button id="demo-auto" onclick="toggleAuto()">自动播放</button>
+    <button onclick="stopDemo()">结束</button>
+  </div>
+</div>
+
 <script src="data/snapshot.js"></script>
 <script>
 "use strict";
@@ -279,12 +305,12 @@ $("#gen-time").textContent = "快照 " + S.generated_at.replace("T"," ").slice(0
 $("#gen-time-foot").textContent = S.generated_at;
 
 /* ---------- tabs ---------- */
-$$("#nav button").forEach(b => b.addEventListener("click", () => {
-  $$("#nav button").forEach(x => x.classList.remove("active"));
-  $$(".tab").forEach(x => x.classList.remove("active"));
-  b.classList.add("active");
-  $("#tab-" + b.dataset.tab).classList.add("active");
-}));
+function activateTab(id){
+  $$("#nav button").forEach(x => x.classList.toggle("active", x.dataset.tab === id));
+  $$(".tab").forEach(x => x.classList.toggle("active", x.id === "tab-" + id));
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+$$("#nav button").forEach(b => b.addEventListener("click", () => activateTab(b.dataset.tab)));
 
 /* ---------- svg helpers ---------- */
 function hBars(target, rows, opts={}) {
@@ -581,6 +607,48 @@ function downloadBib(){
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type:"text/plain;charset=utf-8"}));a.download="openalex_library.bib";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},10000);
 }
 renderLibrary();
+
+/* ---------- guided demo ---------- */
+const DEMO_STEPS=[
+  {tab:"overview",title:"数据地基与统计分析",text:"先看规模与方法链路：1,000 人试跑已跑通 WP0–WP16，形成 896 名定案学者、86.5 万篇去重作品、1.3 万余条迁移事件。这里展示的是可复算统计，不是全量 20 万交付；请特别留意分类中 265 人因证据未决而留空正式类别。"},
+  {tab:"network",title:"空间可视化与流向",text:"国家/地区流向和机构分布用于展示迁移信号。底图采用腾讯位置服务 GL JS，符合国内合规要求；境外图层属非默认场景，演示环境不内置 Key，正式部署时由贵方申请并由后端代理。热力图、流线图和三维图层是第二期后续扩展项。"},
+  {tab:"trajectory",title:"学者年度轨迹",text:"按学者查看年度主机构/主国家变化与事件证据。绝大多数事件的 actual_year 为空，年份来自论文署名代理，因此这里展示的是“候选轨迹”而非已核实的真实任职年份——这正是后续需要补履历证据的地方。"},
+  {tab:"did",title:"DID 流程验证",text:"2018 中美科技战 DID 已跑出系数、置信区间和逐年效应。请如实说明：treated 仅 5 人，2x2 聚类口径显著但事件研究平行趋势不显著，两套口径矛盾；本页只证明流程可跑通，不构成政策结论。全量后才会做匹配、权重和安慰剂检验。"},
+  {tab:"cohort",title:"中国背景候选与证据",text:"队列由姓名拼音、中国机构署名和 2017 在美状态生成，只是算法候选。外部证据逐条留存公开来源 URL 与原文；身份未匹配者一律不进 treated。cohort_member.birth_country 保持 NULL，公开履历不等于官方出生证明。"},
+  {tab:"literature",title:"文献模块",text:"第二期文献板块先做本地可闭环的能力：粘贴 BibTeX → 自动标签分类 → 检索 → GB/T 7714 / APA / MLA 转换导出，数据只存本机浏览器。跨库语义检索需接入有合法授权的数据源后启用，不在 demo 中伪装已实现。"},
+  {tab:"localtools",title:"本地软件协同",text:"SPSS / Stata / ArcGIS 的调用方式已标准化：统一 CSV 数据 + 可直接运行的脚本模板。demo 不远程调用软件、也不伪造软件输出；正式环境在本机安装相应软件后即可运行模板，结果回写由后续集成完成。"},
+  {tab:"export",title:"导出与下一步",text:"所有图表都可由只读快照复算。第二期 demo 到此结束；尚未建设的是跨库文献检索、热力/流线/三维图层、软件执行结果回传，以及全量跑批。全量跑批还需确认 API 额度、磁盘预算与交付时间表。"}
+];
+let demoIdx=0,demoTimer=null;
+function renderDemo(){
+  const s=DEMO_STEPS[demoIdx];
+  activateTab(s.tab);
+  $("#demo-step").textContent=`${demoIdx+1} / ${DEMO_STEPS.length}`;
+  $("#demo-title").textContent=s.title;
+  $("#demo-text").textContent=s.text;
+}
+function startDemo(){
+  demoIdx=0;
+  document.body.classList.add("demo-on");
+  $("#demo-bar").hidden=false;
+  $("#demo-auto").textContent="自动播放";
+  renderDemo();
+}
+function demoNext(){
+  if(demoIdx<DEMO_STEPS.length-1){demoIdx++;renderDemo();}
+  else stopDemo();
+}
+function demoPrev(){if(demoIdx>0){demoIdx--;renderDemo();}}
+function stopDemo(){
+  if(demoTimer){clearInterval(demoTimer);demoTimer=null;}
+  document.body.classList.remove("demo-on");
+  $("#demo-bar").hidden=true;
+}
+function toggleAuto(){
+  if(demoTimer){clearInterval(demoTimer);demoTimer=null;$("#demo-auto").textContent="自动播放";return;}
+  $("#demo-auto").textContent="暂停播放";
+  demoTimer=setInterval(demoNext,9000);
+}
 
 /* ---------- local software bridge ---------- */
 const BRIDGE_FILES=["did_panel.csv","did_robust_estimate.csv","did_robust_annual_effect.csv","mobility_event_sample.csv","mobility_class_summary.csv"];
