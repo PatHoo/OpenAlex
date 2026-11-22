@@ -113,25 +113,34 @@ def parse_name_list(text: str) -> list[dict]:
     return out
 
 
+_PRESET_CACHE: list[str] | None = None  # 预置名单内存缓存（首次读 xlsx 后缓存，避免重复读 35MB 文件）
+
+
 def load_preset_subset(limit: int, offset: int = 0, by: str = "rank") -> list[dict]:
     """从预置 105,026 名单取子集（按 rank 升序 = 引用最高优先）。返回 [{src_id, authfull}]。
 
     src_id 用 source_row（从 1 起）作为对外编号；抓取内部仍可映射回 Excel 行号。
+
+    首次调用会读完整 xlsx（约 20 秒）并缓存到内存；之后直接切片，毫秒级返回。
     """
-    import openpyxl  # 仅在用到预置名单时 import
+    global _PRESET_CACHE
 
-    wb = openpyxl.load_workbook(PRESET_XLSX, read_only=True, data_only=True)
-    ws = wb["Career"]
-    header = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1))]
-    name_idx = header.index("authfull") if "authfull" in header else 0
-    rows = []
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        if row[name_idx] is None or str(row[name_idx]).strip() == "":
-            continue
-        rows.append(str(row[name_idx]).strip())
-    wb.close()
+    if _PRESET_CACHE is None:
+        import openpyxl  # 仅在用到预置名单时 import
 
-    subset = rows[offset : offset + limit]
+        wb = openpyxl.load_workbook(PRESET_XLSX, read_only=True, data_only=True)
+        ws = wb["Career"]
+        header = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1))]
+        name_idx = header.index("authfull") if "authfull" in header else 0
+        rows: list[str] = []
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if row[name_idx] is None or str(row[name_idx]).strip() == "":
+                continue
+            rows.append(str(row[name_idx]).strip())
+        wb.close()
+        _PRESET_CACHE = rows
+
+    subset = _PRESET_CACHE[offset : offset + limit]
     return [{"src_id": offset + i + 1, "authfull": n} for i, n in enumerate(subset)]
 
 

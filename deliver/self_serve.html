@@ -447,11 +447,24 @@ $("btn-key").onclick = async () => {
 };
 
 // ---- 名单 ----
+let presetWarmed = false;  // 预置名单是否已预热
 $("btn-load-preset").onclick = async () => {
+  const btn = $("btn-load-preset");
   const limit = parseInt($("limit").value || "10");
   const offset = parseInt($("offset").value || "1") - 1;
-  const r = await post("/list", { mode:"preset", limit, offset });
-  setListStatus(r);
+  btn.disabled = true;
+  const oldText = btn.textContent;
+  btn.textContent = "加载中…";
+  const el = $("list-status");
+  el.className = "msg"; el.textContent = "⏳ 正在读取名单库（首次约 20 秒）…";
+  try {
+    const r = await post("/list", { mode:"preset", limit, offset });
+    setListStatus(r);
+  } catch(e) {
+    el.className = "msg err"; el.textContent = "❌ 请求失败，请重试";
+  } finally {
+    btn.disabled = false; btn.textContent = oldText;
+  }
 };
 $("btn-load-paste").onclick = async () => {
   const r = await post("/list", { mode:"paste", text: $("paste").value });
@@ -459,9 +472,30 @@ $("btn-load-paste").onclick = async () => {
 };
 function setListStatus(r){
   const el = $("list-status");
-  if(r.ok){ el.className = "msg ok"; el.textContent = `✅ 已加载 ${r.count} 人`;
-    stepDone(2); } else { el.className = "msg err"; el.textContent = "❌ " + (r.error||"加载失败"); }
+  if(r.ok){
+    el.className = "msg ok";
+    let t = `✅ 已加载 ${r.count} 人`;
+    if(r.preset_total) t += `（名单库共 ${r.preset_total} 人）`;
+    el.textContent = t;
+    stepDone(2);
+  } else {
+    el.className = "msg err";
+    el.textContent = "❌ " + (r.error||"加载失败");
+  }
 }
+
+// 轮询预置名单预热状态（页面打开后自动预加载，用户首次点击即秒开）
+async function pollPreset(){
+  try {
+    const r = await (await fetch(API+"/preset")).json();
+    if(r.ready && !presetWarmed){
+      presetWarmed = true;
+      if(r.total) toast(`名单库已就绪（${r.total} 人）`, "ok");
+    }
+  } catch(e){}
+}
+setInterval(pollPreset, 1500);
+pollPreset();
 
 // ---- 抓取 ----
 $("btn-run").onclick = async () => {

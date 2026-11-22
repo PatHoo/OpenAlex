@@ -39,6 +39,26 @@ runner_thread: threading.Thread | None = None
 _key: str = ""
 WORKDIR: Path = DEFAULT_WORKDIR
 
+# 预置名单预热状态（首次读 35MB xlsx 约 20 秒，启动时后台预热，避免用户首次点击卡顿）
+preset_ready = threading.Event()
+preset_total = 0
+_preset_error: str = ""
+
+
+def _warm_preset() -> None:
+    """后台预热预置名单：读一次 xlsx 填满内存缓存。"""
+    global preset_total, _preset_error
+    try:
+        # 读完整名单（结果不直接用，但会填充 fetch_service 的模块级缓存）
+        load_preset_subset(limit=1, offset=0)
+        from fetch_service import _PRESET_CACHE
+
+        preset_total = len(_PRESET_CACHE) if _PRESET_CACHE else 0
+    except Exception as e:  # noqa: BLE001
+        _preset_error = str(e)
+    finally:
+        preset_ready.set()
+
 
 # ---- key 管理（仅内存 + 可选缓存文件）----
 def _cached_key() -> str:
@@ -69,6 +89,16 @@ def api_state():
     return jsonify({"state": snap, "key_set": bool(_key or _cached_key())})
 
 
+@app.get("/api/preset")
+def api_preset():
+    """预置名单预热状态（前端据此显示"正在加载名单库…"）。"""
+    return jsonify({
+        "ready": preset_ready.is_set() and not _preset_error,
+        "total": preset_total,
+        "error": _preset_error,
+    })
+
+
 @app.post("/api/key")
 def api_key():
     body = request.get_json(silent=True) or {}
@@ -96,7 +126,12 @@ def api_list():
         (WORKDIR / "roster.json").write_text(
             json.dumps(names, ensure_ascii=False), encoding="utf-8"
         )
-        return jsonify({"ok": True, "count": len(names), "sample": names[:3]})
+        return jsonify({
+            "ok": True,
+            "count": len(names),
+            "sample": names[:3],
+            "preset_total": preset_total if mode == "preset" else None,
+        })
     except Exception as e:  # noqa: BLE001
         return jsonify({"error": str(e)}), 500
 
@@ -166,7 +201,12 @@ def main() -> None:
 
     print(f"[self-serve] 已启动：http://{args.host}:{args.port}")
     print(f"[self-serve] 数据目录：{WORKDIR}")
-    # Flask 开发服务器单线程即可（后台抓取在独立线程，用 threaded=True 保证并发响应）
+
+    # 后台预热预置名单（首次读 35MB xlsx 约 20 秒，不阻塞服务启动）
+    threading.Thread(target=_warm_preset, daemon=True).start()
+    print("[self-serve] 正在后台预热预置名单…")
+
+    # Flask 开发服务器（后台抓取在独立线程，用 threaded=True 保证并发响应）
     app.run(host=args.host, port=args.port, threaded=True)
 
 
