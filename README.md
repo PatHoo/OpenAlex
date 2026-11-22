@@ -13,6 +13,7 @@
 - [技术架构](#技术架构)
 - [快速开始](#快速开始)
 - [项目状态](#项目状态)
+- [文档分发边界](#文档分发边界)
 - [技术栈](#技术栈)
 
 ## 项目背景
@@ -93,12 +94,15 @@ OpenAlex/
 │   ├── tests/test_fetch_service.py       # 自助抓取服务层测试（8 项：名单解析/进度/预置子集）
 │   ├── export_requests_sql.py            # 请求留痕导入数据库
 │   └── data/batch_001/                   # 试跑产物（gitignored，不上传）
-└── output/                           # 分析与交付物
+└── output/                           # 分析与交付物（见「文档分发边界」章节）
     └── openalex_audit_20261121/
-        ├── sources/materials_digest.md
-        ├── stage1/organized_draft.md
-        ├── stage2/formatted-OpenAlex验收质疑清单.html
-        └── stage3/OpenAlex科学家流动数据库_验收质疑清单.docx
+        ├── 第一期交付说明与待确认事项.md      # 对外文档源稿
+        ├── sources/materials_digest.md        # 内部：材料摘录
+        ├── stage1/organized_draft.md          # 内部：质疑清单源稿
+        ├── stage2/formatted-OpenAlex验收质疑清单.html   # 内部
+        ├── stage2/第一期交付说明.html         # 对外 docx 的母版
+        ├── stage3/OpenAlex科学家流动数据库_验收质疑清单.docx   # ⚠️ 仅内部，勿发甲方
+        └── stage3/第一期交付说明与待确认事项.docx             # ✅ 对外，发这份
 ```
 
 ## 数据资产
@@ -205,6 +209,19 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
 | `did_robust_estimate` / `did_robust_annual_effect` | 8 / 28 | 学者层聚类 CR1 SE + 平行趋势联合 F；2x2 与事件研究双口径 |
 
 分析层边界：13,350 条事件无真实任职年份（签名为代理年），5 条 Confirmed 借用 3 人小样履历；八类分类依据原始 Word `科学家空间流动数据库建立操作1030.docx` 8.5.2 节，D/I 只认 Confirmed/Probable，阴性维度有 Possible 未决候选者 `formal_class` 留空（265 人）。WP13 按姓名拼音 + 中国机构署名 + 2017 在美面板生成"中国背景候选"（7 high / 104 low），不写 `birth_country`。WP15 对 7 名 high 逐人核对公开来源（机构官网/CV/维基/百科，每条留 URL 与原文）：4 人 verified（Yang Peidong / Zhu Jian-Kang / Hu Frank B. / Peng Fang Z.）、1 人 probable（Sun Shouheng，官方 CV 载川大本科+南大硕士但无出生地原文）、1 人算法假阳性（Joseph Wang，UCSD 官方与维基载 Technion 博士、全美职业，无中国段）、1 人身份未定（Jie Liu，B 级消歧+机构空白+同名众多）。`cohort_external_review.eligible_treated` 只放行前 5 人。WP14 v2 据此重建 DID（3,359 组-年，5 treated / 428 control）；WP16 加学者层聚类 CR1 SE 与平行趋势联合 F 检验。结果：聚类 2x2 下 `moves_any` +0.155（SE 0.055、p 0.005）但事件研究 post 均值 +0.154（p 0.35）不显著、逐年 lag 系数跳跃，两者矛盾；`cn_link` 的 lead 协方差退化（处理组二值变量零方差），F 检验降级标注为非真 F。**treated 仅 5 人、聚类小簇偏倚，全部结论只证明流程可跑，不能作政策解读**。运行顺序、断点续跑、回归测试、额度自查与全部踩坑详见 `pipeline/README.md`。
+
+## 文档分发边界
+
+`output/openalex_audit_20261121/` 下的文档**内外有别，发给甲方前务必区分**：
+
+| 文档 | 可否发甲方 | 用途 |
+|------|-----------|------|
+| `stage3/第一期交付说明与待确认事项.docx` | ✅ **对外——只发这份** | 一页纸交付说明：已完成工作 / 交付边界 / 6 项待甲方书面确认 / 建议下一步。语气是推动验收，已确认内部字样无残留。 |
+| `stage3/OpenAlex科学家流动数据库_验收质疑清单.docx` | ❌ **仅内部，勿发** | 定位是"第一期付款前验收问询"、通篇"请乙方说明……"，是站在甲方视角预判质疑的**内部预审 / 答辩底稿**。原文含"不宜按第一期数据交付完成验收，也不足以触发后续各期付款"——发给甲方等于替对方写拒付提纲、主动放弃收款依据。 |
+| `stage1/organized_draft.md`、`sources/materials_digest.md`、`stage2/formatted-OpenAlex验收质疑清单.html` | ❌ 仅内部 | 质疑清单的源稿与材料摘录，供内部准备验收答辩。 |
+| `第一期交付说明与待确认事项.md`、`stage2/第一期交付说明.html` | 内部源稿 | 对外 docx 的 md 源稿与转换母版；对外稿已去除对内部质疑清单的引用。 |
+
+**原则**：对外只发《第一期交付说明与待确认事项》，质疑清单留作内部答辩底稿。若甲方索要质疑点清单，用交付说明里的"待确认事项"应对——那是同一批问题的得体版本，既显专业配合，又不失立场。
 
 ## 技术栈
 
