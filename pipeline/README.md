@@ -23,6 +23,7 @@
 
 - **免费 key**：$1/天，**30 req/s**，支持 cursor 翻页；list 类请求（`/authors?search=`、`/works?filter=`）约 $0.0001/次，单实体查询免费。
 - **匿名（无 key）**：与同 IP 共享 $0.10/天，翻页只能拿第一页，仅够极小样本验证。
+  > **2026-11-22 实测**：匿名共享额度耗尽后，OpenAlex 已切换到新计费模型，响应可能是 **403**（而非标准 429），错误文案用 "exceeded / budget / quota" 而非精确 `code == "daily_budget"`。当前 `oa_client.py` 只精确匹配 `error_code == "daily_budget"`，若将来匿名跑批触发此路径会漏识别而进入退避重试。**跑批场景不受影响**（强制带 key，key 额度耗尽仍是标准 429 `daily_budget`）；受影响的是纯前端 `web/index.html`（已改按错误文案正则识别）。若未来要做匿名批量验证，需先按实际响应加固 `oa_client.py` 的额度识别。
 - **额度按账户/邮箱计，不按 key**：同一邮箱再申请返回 `409 account_exists`。换邮箱 = 独立 $1/天（本项目用两把 key 轮换绕过单日上限）。
 - 429 分两类：`daily_budget`（当日额度耗尽，`Retry-After` 指向次日重置）与速率限流。前者脚本会**立即暂停**（见下）。
 

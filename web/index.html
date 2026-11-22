@@ -31,9 +31,9 @@
   code { font-family: "SF Mono", Consolas, monospace; font-size: 12px; background: var(--bg-soft);
          padding: 1px 6px; border-radius: 5px; }
   .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
-  @media (max-width: 900px) { .app { grid-template-columns: 1fr; } .sidebar { display: none; } }
   .sidebar { background: var(--side); color: var(--side-text); padding: 24px 18px;
-             display: flex; flex-direction: column; gap: 4px; }
+             display: flex; flex-direction: column; gap: 4px;
+             position: sticky; top: 0; height: 100vh; overflow-y: auto; align-self: start; }
   .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; padding: 0 8px; }
   .brand .logo { width: 34px; height: 34px; border-radius: 9px; flex: 0 0 auto;
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -48,6 +48,7 @@
   .nav-item .ico { width: 18px; text-align: center; }
   .sidebar .foot { margin-top: auto; font-size: 11px; opacity: .45; padding: 12px 8px 0; }
   .main { display: flex; flex-direction: column; min-width: 0; }
+  .mobile-nav { display: none; }
   .topbar { display: flex; align-items: center; gap: 14px; padding: 14px 28px;
     background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
   .topbar h1 { font-size: 17px; font-weight: 700; margin: 0; }
@@ -76,9 +77,8 @@
   .step.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .step.active .num { background: var(--accent); color: #fff; }
   .step.done .num { background: var(--ok); color: #fff; }
-  @media (max-width: 640px) { .steps { flex-direction: column; } }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-    padding: 22px 24px; margin-bottom: 18px; box-shadow: var(--shadow); }
+    padding: 22px 24px; margin-bottom: 18px; box-shadow: var(--shadow); scroll-margin-top: 76px; }
   .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
   .card-head .step-no { width: 24px; height: 24px; border-radius: 7px; background: var(--accent);
     color: #fff; font-size: 13px; font-weight: 700; display: grid; place-items: center; }
@@ -153,6 +153,44 @@
   .keybox { background: var(--warn-soft); border: 1px solid var(--warn); border-radius: 10px;
     padding: 12px 16px; font-size: 12.5px; color: var(--warn); margin-bottom: 14px; display: none; }
   .keybox.show { display: block; }
+
+  /* ============ 移动端适配 ============ */
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .topbar { position: static; }
+    .mobile-nav { display: flex; gap: 4px; padding: 8px 12px; overflow-x: auto;
+      background: var(--card); border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; z-index: 9; -webkit-overflow-scrolling: touch; }
+    .mobile-nav button { flex: 0 0 auto; padding: 7px 14px; border: 1px solid var(--line);
+      border-radius: 20px; background: transparent; color: var(--muted); font-size: 13px;
+      font-weight: 600; font-family: inherit; cursor: pointer; white-space: nowrap; }
+    .mobile-nav button:active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  }
+  @media (max-width: 640px) {
+    body { font-size: 14px; }
+    .topbar { padding: 10px 14px; gap: 8px; }
+    .topbar h1 { font-size: 15px; }
+    .pill { padding: 5px 10px; font-size: 12px; }
+    .content { padding: 16px 14px 48px; }
+    .steps { flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .step { padding: 10px 14px; font-size: 12.5px; }
+    .card { padding: 16px 16px; margin-bottom: 14px; scroll-margin-top: 60px; }
+    .card-head h2 { font-size: 14px; }
+    .row { gap: 10px; }
+    .row > div { flex: 1 1 100%; }
+    .row > .grow2 { flex: 1 1 100%; }
+    .row > div:has(.btn), .row > div:has(button) { flex: 0 0 auto; }
+    .progress-wrap { gap: 16px; justify-content: center; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .ring { margin: 0 auto; }
+    .export-grid { grid-template-columns: 1fr; }
+    .log-box { height: 150px; font-size: 11.5px; }
+    table { font-size: 12px; display: block; overflow-x: auto; white-space: nowrap; }
+    th, td { padding: 8px 10px; }
+    .toast { left: 16px; right: 16px; bottom: 16px; text-align: center; }
+    .icon-btn { width: 34px; height: 34px; }
+  }
 </style>
 </head>
 <body>
@@ -174,6 +212,13 @@
       <button class="icon-btn" id="btn-theme" title="切换主题">🌓</button>
     </div>
 
+    <nav class="mobile-nav" id="mobile-nav">
+      <button data-scroll="step-key">🔑 Key</button>
+      <button data-scroll="step-list">👥 名单</button>
+      <button data-scroll="step-run">⚙️ 抓取</button>
+      <button data-scroll="step-export">📦 导出</button>
+    </nav>
+
     <div class="content">
       <div class="steps">
         <div class="step active" id="step-1"><span class="num">1</span> 设置 Key（可选）</div>
@@ -190,7 +235,8 @@
           <button class="btn btn-primary" id="btn-key">保存 Key</button>
         </div>
         <div class="hint">
-          Key 为<strong>可选</strong>，但<strong>强烈建议设置</strong>：匿名模式每人最多只能抓 100 篇作品（OpenAlex 限制匿名翻页），且额度低、易限流。
+          <strong>⚠️ 匿名模式现已不可靠</strong>：OpenAlex 现在要求匿名请求与同网络 IP 的<strong>所有人共享每天仅 $0.10 的额度</strong>（约 100 次搜索），
+          一旦耗尽就完全无法抓取，且匿名模式每人最多只能抓 100 篇作品（翻页需 key）。<strong>强烈建议设置 API key</strong>：
           免费 key 每天 $1 额度（约 1 万次检索）、30 请求/秒。前往
           <a href="https://openalex.org/signup" target="_blank">openalex.org/signup</a> 注册，
           再到 <a href="https://openalex.org/settings/api-key" target="_blank">设置页</a> 复制，并到邮箱点激活链接。
@@ -320,8 +366,8 @@ function addLog(type, text){ const box=$("log-box");
   box.appendChild(d); box.scrollTop=box.scrollHeight; }
 const sleep = ms => new Promise(r=>setTimeout(r, ms));
 
-/* ============ 侧边栏 ============ */
-document.querySelectorAll(".nav-item").forEach(el=>{
+/* ============ 侧边栏 & 移动端导航 ============ */
+document.querySelectorAll(".nav-item, .mobile-nav button").forEach(el=>{
   el.onclick=()=>document.getElementById(el.dataset.scroll).scrollIntoView({behavior:"smooth",block:"start"});
 });
 
@@ -465,26 +511,33 @@ async function oaGet(path, params){
     catch(e){ if(attempt<MAX_RETRIES){ await sleep(BACKOFF_BASE**(attempt+1)*1000); continue; } return null; }
     requestCount++;
     if(resp.status === 200){ return await resp.json(); }
+    // 解析错误体，统一判断错误类型
+    let body = {};
+    try { body = await resp.json(); } catch(e){ body = {}; }
+    const msg = String(body.message||body.error||"").toLowerCase();
+    // 额度耗尽（匿名共享 $0.10/天 或 免费 key 当日 $1 用完）
+    if(/budget|exceeded|daily|quota|rate limit/i.test(msg) ||
+       (resp.status===403 && /budget|exceed|quota/i.test(msg))){
+      throw new Error("DAILY_BUDGET_EXHAUSTED");
+    }
     // 401：匿名模式下 cursor 翻页需要 key（OpenAlex 限制）
     if(resp.status === 401){
-      let msg = "";
-      try { const j=await resp.json(); msg=j.message||j.error||""; } catch(e){}
-      if(msg.includes("cursor") || msg.includes("API key")){
+      if(msg.includes("cursor")){
         throw new Error("CURSOR_REQUIRES_KEY");
+      }
+      if(msg.includes("invalid") || msg.includes("not found") || msg.includes("missing")){
+        addLog("err","API key 无效或未找到，请检查 key 是否正确、是否已激活");
+        throw new Error("INVALID_API_KEY");
       }
       return null;
     }
-    // 429 / 403 / 5xx
+    // 403：key 未激活
+    if(resp.status===403 && (msg.includes("not_activated") || msg.includes("not activated"))){
+      addLog("err","API key 未激活，请到邮箱点激活链接");
+      throw new Error("KEY_NOT_ACTIVATED");
+    }
+    // 429 / 403 / 5xx 通用重试
     if(resp.status===429 || resp.status===403 || resp.status>=500){
-      let code=null;
-      try { const j=await resp.json(); code=j.code||j.reason||j.error; } catch(e){}
-      if(resp.status===429 && code==="daily_budget"){
-        throw new Error("DAILY_BUDGET_EXHAUSTED");
-      }
-      if(resp.status===403 && code==="key_not_activated"){
-        addLog("err","API key 未激活，请到邮箱点激活链接");
-        return null;
-      }
       if(attempt<MAX_RETRIES){
         const ra = resp.headers.get("Retry-After");
         const wait = ra ? parseFloat(ra)*1000 : BACKOFF_BASE**(attempt+1)*1000;
@@ -564,6 +617,22 @@ async function wp2FetchWorks(src, authorId, maxWorks){
   return out;
 }
 
+/* 把底层错误统一转成清晰的中文提示 */
+function friendlyError(e){
+  const m = e && e.message ? e.message : String(e);
+  if(m === "DAILY_BUDGET_EXHAUSTED")
+    return "额度已耗尽：匿名模式每天仅共享 $0.10，或免费 key 当日 $1 已用完，请设置/更换 API key，或明天再试";
+  if(m === "RATE_LIMIT_EXCEEDED")
+    return "触发速率限制，请稍后重试";
+  if(m === "INVALID_API_KEY")
+    return "API key 无效或未找到，请检查 key 是否正确、是否已到邮箱激活";
+  if(m === "KEY_NOT_ACTIVATED")
+    return "API key 未激活，请到邮箱点击激活链接";
+  if(m === "MANUAL_STOP")
+    return "已手动停止";
+  return m;
+}
+
 /* ============ 持久化（localStorage） ============ */
 function saveState(){
   try{
@@ -609,9 +678,7 @@ async function runFetch(topN, maxWorks){
         cp.wp1 = true; cp.candidates = cands.length;
         saveState();
       }catch(e){
-        if(e.message==="DAILY_BUDGET_EXHAUSTED"){ halted="当日额度已耗尽，请明天续跑"; }
-        else if(e.message==="RATE_LIMIT_EXCEEDED"){ halted="触发速率限制，稍后重试"; }
-        else { halted = e.message; }
+        halted = friendlyError(e);
         break;
       }
     }
@@ -643,10 +710,7 @@ async function runFetch(topN, maxWorks){
           cp.wp2 = true; cp.works_count = wks.length; cp.oa_author_id = aid;
           saveState();
         }catch(e){
-          if(e.message==="DAILY_BUDGET_EXHAUSTED"){ halted="当日额度已耗尽，请明天续跑"; }
-          else if(e.message==="RATE_LIMIT_EXCEEDED"){ halted="触发速率限制，稍后重试"; }
-          else if(e.message==="MANUAL_STOP"){ halted="已手动停止"; }
-          else { halted = e.message; }
+          halted = friendlyError(e);
           break;
         }
       }
@@ -698,7 +762,9 @@ $("btn-run").onclick = async ()=>{
   const mw = ($("maxworks").value||"").trim();
   const maxWorks = mw ? parseInt(mw) : null;
   if(!apiKey){
-    addLog("warn","未设置 API key，将以匿名模式抓取：每人最多抓 100 篇作品（翻页需 key），建议设置 key 抓全量");
+    addLog("warn","未设置 API key：匿名模式每天仅共享 $0.10 额度，极易耗尽导致抓取失败，建议先设置 key");
+  } else {
+    addLog("ok","已使用 API key 抓取（每天 $1 额度）");
   }
   addLog("info",`启动抓取：${roster.length} 人`);
   runFetch(topN, maxWorks);
