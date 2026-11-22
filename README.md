@@ -2,7 +2,7 @@
 
 **全球高被引学者的机构隶属与空间流动轨迹重建** — 数据基建 · 政策研究 · AI 科研工具平台
 
-> **项目状态**：第一期方法可行性验证（Proof of Concept）已完成；1,000 人试跑已全量抓取并完成落库，队列筛选、外部出生国证据核查与 DID（含聚类稳健 SE）均已跑通（见 [项目状态](#项目状态)）。全量 10.5 万学者跑批与 Agent 平台尚未实施。
+> **项目状态**：第一期方法可行性验证（Proof of Concept）已完成；1,000 人试跑已全量抓取并完成落库，队列筛选、外部出生国证据核查与 DID（含聚类稳健 SE）均已跑通。**第二期建设已启动**：`web/platform.html` 提供统计分析、空间可视化、DID、队列证据、文献管理与本地软件协同 MVP（见 [第二期建设进度](#第二期建设进度2026-11-23)）。全量 10.5 万 / 20 万跑批、跨库文献检索、第三期论文写作与第四期本地化部署尚未实施。
 
 ## 目录
 
@@ -26,6 +26,8 @@
 4. 把整套能力做成科研 Agent 平台：AI 统计、地图/热力/流线可视化、调度本地 SPSS/Stata/ArcGIS、文献管理、论文写作，最终本地化部署交付。
 
 数据源以 **OpenAlex** 为核心，辅以 **ROR**（机构标准化）、**ORCID**（身份消歧）、**Crossref**（履历佐证）。原始样本来自 Elsevier 2017 高被引名单，共 **105,027** 名学者。
+
+**分期范围（据原始《（需求清单）.doc》确认）**：项目分四期付款。第一期＝数据获取、清洗、校正与多源验证（已完成 1,000 人 POC）；**第二期＝实验数据分析板块**（智能统计分析；专题地图/热力图/流线图/三维可视化；调度 SPSS/Stata/ArcGIS；DID 检验）＋**文献板块**（跨库语义检索、题录格式生成与转换、云盘式存储/分类/即时调用）；第三期＝论文写作（智能写作、结构辅助、Humanizer 去机器化）；第四期＝本地化部署与独立运行。此前「按合同约定属后续期次」的笼统表述已据此细化。
 
 ## 核心方法
 
@@ -93,7 +95,16 @@ OpenAlex/
 │   ├── tests/test_wp11_classification.py # 8.5 分类口径回归测试（6 项）
 │   ├── tests/test_fetch_service.py       # 自助抓取服务层测试（8 项：名单解析/进度/预置子集）
 │   ├── export_requests_sql.py            # 请求留痕导入数据库
+│   ├── export_platform_snapshot.py       # 第二期：导出平台聚合快照 → web/data/snapshot.*
+│   ├── export_local_tools.py             # 第二期：导出 SPSS/Stata/ArcGIS 数据与脚本模板
 │   └── data/batch_001/                   # 试跑产物（gitignored，不上传）
+├── web/                              # 纯前端页面
+│   ├── index.html                        # 客户自助抓取网站（已上线）
+│   ├── roster.txt                        # 预置名单
+│   ├── platform.html                     # 第二期科研分析平台 MVP
+│   └── data/snapshot.{js,json}           # 平台只读数据快照（可 file:// 打开）
+├── deliver/                          # 本地软件协同数据与模板
+│   └── local_tools/                      # CSV + run_spss.sps / run_stata.do / arcgis_publish.py
 └── output/                           # 分析与交付物（见「文档分发边界」章节）
     └── openalex_audit_20261121/
         ├── 第一期交付说明与待确认事项.md      # 对外文档源稿
@@ -210,6 +221,30 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
 
 分析层边界：13,350 条事件无真实任职年份（签名为代理年），5 条 Confirmed 借用 3 人小样履历；八类分类依据原始 Word `科学家空间流动数据库建立操作1030.docx` 8.5.2 节，D/I 只认 Confirmed/Probable，阴性维度有 Possible 未决候选者 `formal_class` 留空（265 人）。WP13 按姓名拼音 + 中国机构署名 + 2017 在美面板生成"中国背景候选"（7 high / 104 low），不写 `birth_country`。WP15 对 7 名 high 逐人核对公开来源（机构官网/CV/维基/百科，每条留 URL 与原文）：4 人 verified（Yang Peidong / Zhu Jian-Kang / Hu Frank B. / Peng Fang Z.）、1 人 probable（Sun Shouheng，官方 CV 载川大本科+南大硕士但无出生地原文）、1 人算法假阳性（Joseph Wang，UCSD 官方与维基载 Technion 博士、全美职业，无中国段）、1 人身份未定（Jie Liu，B 级消歧+机构空白+同名众多）。`cohort_external_review.eligible_treated` 只放行前 5 人。WP14 v2 据此重建 DID（3,359 组-年，5 treated / 428 control）；WP16 加学者层聚类 CR1 SE 与平行趋势联合 F 检验。结果：聚类 2x2 下 `moves_any` +0.155（SE 0.055、p 0.005）但事件研究 post 均值 +0.154（p 0.35）不显著、逐年 lag 系数跳跃，两者矛盾；`cn_link` 的 lead 协方差退化（处理组二值变量零方差），F 检验降级标注为非真 F。**treated 仅 5 人、聚类小簇偏倚，全部结论只证明流程可跑，不能作政策解读**。运行顺序、断点续跑、回归测试、额度自查与全部踩坑详见 `pipeline/README.md`。
 
+## 第二期建设进度（2026-11-23）
+
+依据原始需求清单，第二期范围＝**实验数据分析板块**＋**文献板块**。本次已启动并落地一版可离线运行的 MVP，全部基于 1,000 人试跑数据，**不冒充全量交付**：
+
+| 模块 | 合同要求 | 本次已实现 | 未完成 / 边界 |
+|------|----------|------------|---------------|
+| 智能统计分析 | 描述统计、相关/回归、方法推荐、操作留痕 | `platform.html`「统计分析总览」：KPI、M1–M8 分类、C1–C5 证据等级、事件年份曲线、结果摘要导出 | 交互式回归建模、AI 方法推荐、操作日志回写数据库 |
+| 空间可视化 | 专题地图、热力图、流线图、三维可视化 | 国家/地区流向、机构 Top20、腾讯位置服务 GL 地图（含 WGS84→GCJ-02 转换）；使用合规底图，**未用 Leaflet/OSM** | 热力/流线/三维图层需配置 Key 后扩展；境外地图属非默认场景，Key 须自行申请并由后端代理 |
+| 本地软件协同 | 调度 SPSS / Stata / ArcGIS | `deliver/local_tools/`：标准 CSV + `run_spss.sps` / `run_stata.do` / `arcgis_publish.py` 模板 | 模板只准备输入与调用方式；本机未安装软件时不伪造执行结果 |
+| 实验数据分析（DID） | 2017–2018 中美科技战 DID 检验 | 系数森林图、逐年效应曲线、聚类稳健估计明细，均标注矛盾口径边界 | 全量后正式推断、匹配/权重、安慰剂检验 |
+| 文献板块 | 跨库语义检索、格式转换、云盘式存储/分类/即时调用 | BibTeX 导入 → 自动标签 → 本地检索 → GB/T 7714 / APA / MLA 转换与导出（localStorage） | 跨库 API 检索、多用户云盘同步，待合法数据源接入 |
+| 论文写作（第三期） | 智能写作、结构辅助、Humanizer | 仅提供结果摘要文本导出作为过渡 | 属第三期，本次不建设 |
+
+**运行方式**（WSL，需数据库口令，不调用 OpenAlex API）：
+
+```bash
+cd /mnt/c/Users/quith/Desktop/OpenAlex
+export PGPASSWORD=$(cat ~/.openalex_db_pass)
+$HOME/.venvs/openalex/bin/python pipeline/export_platform_snapshot.py
+$HOME/.venvs/openalex/bin/python pipeline/export_local_tools.py
+```
+
+然后用浏览器打开 `web/platform.html`（纯静态，可 `file://` 直接打开）。地图页需自行申请腾讯位置服务 Key 并替换 `platform.html` 中的 `TMAP_KEY` 占位符；不得把真实 Key 硬编码进公开前端。
+
 ## 文档分发边界
 
 `output/openalex_audit_20261121/` 下的文档**内外有别，发给甲方前务必区分**：
@@ -230,8 +265,8 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
 | 抓取 | Python (requests/httpx)、OpenAlex API、ROR、ORCID、Crossref |
 | 存储 | PostgreSQL 17（原生落库）+ PostgreSQL 16 + PostGIS / Apache AGE（图容器） |
 | 计算 | pandas/polars、statsmodels/linearmodels (DID)、pytest |
-| 可视化 | Leaflet / ECharts / Plotly |
-| 交付 | Word、LaTeX、Zotero/BibTeX、Docker |
+| 可视化 | 原生 SVG 图表 + 腾讯位置服务 GL JS（合规底图；禁止 Leaflet/OSM 直连境外瓦片） |
+| 交付 | Word、LaTeX、Zotero/BibTeX、SPSS/Stata/ArcGIS 脚本模板、Docker |
 
 ---
 

@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenAlex 科研分析平台 · 第二期 MVP</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#ffffff; --ink:#1f2937; --muted:#64748b; --line:#e2e8f0;
+    --accent:#2563eb; --accent-soft:#eff6ff; --ok:#047857; --ok-soft:#ecfdf5;
+    --warn:#b45309; --warn-soft:#fffbeb; --red:#b91c1c; --red-soft:#fef2f2;
+    --shadow:0 1px 3px rgba(15,23,42,.08),0 8px 24px rgba(15,23,42,.04);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  a{color:var(--accent);text-decoration:none}
+  header{background:#fff;border-bottom:1px solid var(--line);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  header h1{font-size:20px;margin:0;letter-spacing:.2px}
+  header .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  header .actions{display:flex;gap:8px;align-items:center}
+  button,.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;transition:.15s}
+  button:hover,.btn:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.primary:hover{background:#1d4ed8;color:#fff}
+  .scope{background:var(--warn-soft);border-bottom:1px solid #fde68a;color:#92400e;padding:9px 28px;font-size:12.5px}
+  nav{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:0 28px;display:flex;gap:4px;overflow-x:auto}
+  nav button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:12px 14px;white-space:nowrap;color:var(--muted)}
+  nav button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  main{max-width:1280px;margin:0 auto;padding:24px 28px 64px}
+  .tab{display:none;animation:fade .2s ease}
+  .tab.active{display:block}
+  @keyframes fade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+  h2{font-size:17px;margin:0 0 14px}
+  h3{font-size:14px;margin:22px 0 10px;color:#334155}
+  .grid{display:grid;gap:16px}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:900px){.g4,.g3,.g2{grid-template-columns:1fr}main{padding:18px 16px 48px}header,nav,.scope{padding-left:16px;padding-right:16px}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow)}
+  .kpi .label{font-size:12px;color:var(--muted)}
+  .kpi .value{font-size:26px;font-weight:700;letter-spacing:-.5px;margin:4px 0 2px}
+  .kpi .hint{font-size:11.5px;color:var(--muted)}
+  .chart{width:100%;overflow-x:auto}
+  svg{display:block;max-width:100%}
+  .axis{stroke:var(--line);stroke-width:1}
+  .gridline{stroke:#eef2f7;stroke-width:1}
+  .tick{font-size:10px;fill:var(--muted)}
+  .bar{fill:var(--accent)}
+  .bar.warn{fill:#f59e0b}
+  .bar.ok{fill:#10b981}
+  .bar.red{fill:#ef4444}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;background:#f8fafc;position:sticky;top:0}
+  tr:hover td{background:#fafcff}
+  .pill{display:inline-block;border-radius:999px;padding:1px 8px;font-size:11px;line-height:1.7;background:#eef2ff;color:#4338ca}
+  .pill.ok{background:var(--ok-soft);color:var(--ok)}
+  .pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .pill.red{background:var(--red-soft);color:var(--red)}
+  .muted{color:var(--muted)}
+  .small{font-size:12px}
+  .note{border-left:3px solid var(--warn);background:var(--warn-soft);padding:10px 12px;border-radius:0 8px 8px 0;color:#92400e;font-size:12.5px;margin:12px 0}
+  .note.blue{border-color:var(--accent);background:var(--accent-soft);color:#1e40af}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  select,input[type=text],textarea{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;background:#fff;color:var(--ink);font-size:13px}
+  textarea{width:100%;min-height:190px;resize:vertical;font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}
+  .scroll{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .track{position:relative;height:34px;background:linear-gradient(#f8fafc,#f8fafc);border-radius:8px;margin:6px 0;overflow:hidden}
+  .track .seg{position:absolute;top:9px;height:16px;border-radius:4px}
+  .track .ev{position:absolute;top:4px;width:3px;height:26px;background:var(--red);border-radius:2px}
+  .timeline-row{border-bottom:1px solid var(--line);padding:10px 0}
+  .timeline-row:last-child{border-bottom:0}
+  .timeline-head{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
+  .map-wrap{height:560px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f1f5f9;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
+  #map{width:100%;height:100%}
+  pre{white-space:pre-wrap;word-break:break-word;background:#0f172a;color:#e2e8f0;padding:16px;border-radius:10px;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;max-height:460px;overflow:auto}
+  .footer{margin-top:32px;color:var(--muted);font-size:11.5px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>OpenAlex 科研分析平台 <span class="muted" style="font-size:13px;font-weight:400">/ 第二期 MVP</span></h1>
+    <div class="sub">Migration analytics · Cohort screening · DID inference · Report assistant</div>
+  </div>
+  <div class="actions">
+    <span class="muted small" id="gen-time"></span>
+    <button onclick="window.print()">打印 / 导出 PDF</button>
+  </div>
+</header>
+
+<div class="scope" id="scope-banner">
+  数据口径：基于 <b>1,000 人试跑</b> 的可复算快照。事件年份多为署名代理年，队列为算法候选层；本平台用于方法展示与内部复核，<b>不等同于全量 20 万学者轨迹库交付</b>。
+</div>
+
+<nav id="nav">
+  <button class="active" data-tab="overview">统计分析总览</button>
+  <button data-tab="network">空间可视化</button>
+  <button data-tab="trajectory">学者轨迹</button>
+  <button data-tab="did">DID 推断</button>
+  <button data-tab="cohort">队列证据</button>
+  <button data-tab="literature">文献模块</button>
+  <button data-tab="localtools">本地软件协同</button>
+  <button data-tab="export">数据导出</button>
+</nav>
+
+<main>
+  <section class="tab active" id="tab-overview">
+    <h2>数据地基与分析层概览</h2>
+    <div class="grid g4" id="kpis"></div>
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card">
+        <h3>D/I/S → M1–M8 分类分布</h3>
+        <div id="chart-class" class="chart"></div>
+        <div class="legend"><span><i style="background:#2563eb"></i>可正式定类</span><span><i style="background:#f59e0b"></i>证据不确定</span></div>
+        <div class="note">265 人因阴性维度仍有 Possible 未决候选而留空正式类别，平台按“未识别”而非“确定无流动”处理。</div>
+      </div>
+      <div class="card">
+        <h3>C1–C5 事件与证据等级</h3>
+        <div id="chart-events" class="chart"></div>
+        <div class="legend"><span><i style="background:#10b981"></i>Confirmed</span><span><i style="background:#2563eb"></i>Probable</span><span><i style="background:#f59e0b"></i>Possible</span></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>事件年份分布（署名代理年，非真实迁移年）</h3>
+      <div id="chart-years" class="chart"></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-network">
+    <h2>迁移网络与空间分布</h2>
+    <div class="grid g2">
+      <div class="card">
+        <h3>国家 / 地区流向 Top 20</h3>
+        <div class="toolbar">
+          <select id="flow-filter">
+            <option value="cross">仅跨国/地区</option>
+            <option value="all">全部（含国内换机构）</option>
+          </select>
+          <span class="muted small" id="flow-hint"></span>
+        </div>
+        <div id="chart-flows" class="chart"></div>
+      </div>
+      <div class="card">
+        <h3>事件目标机构 Top 20</h3>
+        <div id="chart-inst" class="chart"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="toolbar" style="justify-content:space-between">
+        <div><h3 style="margin:0">地理视图（腾讯位置服务）</h3><div class="small muted">机构坐标为 WGS84，前端已按 GCJ-02 转换后落点。</div></div>
+        <button class="primary" onclick="loadTMap()">加载地图</button>
+      </div>
+      <div class="note" id="map-note">
+        本平台涉及境外地理范围，属地图服务非默认场景，需使用你自行申请的腾讯位置服务 Key。请把 <code>platform.html</code> 中的 <code>TMAP_KEY</code> 占位符替换后再加载；Key 不应硬编码进公开前端，生产环境请由后端代理。
+      </div>
+      <div class="map-wrap" id="map-wrap"><div class="muted">点击“加载地图”查看机构分布</div></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-trajectory">
+    <h2>学者年度轨迹</h2>
+    <div class="toolbar">
+      <select id="scholar-select"></select>
+      <span class="muted small">按事件数选取前 12 位学者；时间轴红点为迁移事件（年份为署名代理年）。</span>
+    </div>
+    <div class="card" id="trajectory-card"></div>
+  </section>
+
+  <section class="tab" id="tab-did">
+    <h2>2018 中美科技战 DID 推断</h2>
+    <div class="note red" style="border-color:var(--red);background:var(--red-soft);color:#991b1b">
+      当前 treated 仅 5 人，2x2 聚类 SE 显著（p≈0.005）但事件研究联合平行趋势不显著（p≈0.35），两套口径互相矛盾。以下结果<b>只证明流程可跑通，不构成政策结论</b>。
+    </div>
+    <div class="grid g2">
+      <div class="card"><h3>系数与 95% 置信区间</h3><div id="chart-did" class="chart"></div></div>
+      <div class="card"><h3>逐年效应（事件研究）</h3><div id="chart-did-annual" class="chart"></div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>稳健估计明细</h3>
+      <div class="scroll"><table id="did-table"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-cohort">
+    <h2>中国背景候选队列与证据</h2>
+    <div class="note">队列基于姓名拼音、中国机构署名与 2017 在美状态生成，<b>不等于已确认中国出生</b>。外部证据逐条留存公开来源 URL 与原文，身份未匹配者一律不进 treated。</div>
+    <div class="card"><div class="scroll"><table id="cohort-table"></table></div></div>
+  </section>
+
+  <section class="tab" id="tab-literature">
+    <h2>文献模块（合同第二期范围）</h2>
+    <div class="note blue">合同第二期要求：跨库语义检索、题录格式生成与转换、云盘式存储/分类/即时调用。本 MVP 先实现<b>本地题录管理闭环</b>：粘贴 BibTeX → 自动标签分类 → 检索 → GB/T 7714 / APA / MLA 转换导出。跨库 API 检索需接入有合法授权的数据源后启用。</div>
+    <div class="grid g2">
+      <div class="card">
+        <h3>导入题录（BibTeX）</h3>
+        <textarea id="bib-input" placeholder="粘贴 BibTeX，例如：&#10;@article{smith2020,&#10;  author={Smith, John and Lee, Mary},&#10;  title={Global scientist mobility},&#10;  journal={Nature}, year={2020}, volume={580}, pages={1--10}&#10;}"></textarea>
+        <div class="toolbar" style="margin-top:10px">
+          <button class="primary" onclick="importBib()">解析并入库</button>
+          <button onclick="clearLib()">清空</button>
+          <span class="muted small" id="lib-count"></span>
+        </div>
+        <div class="small muted">数据只保存在本机浏览器 localStorage，不上传、不外传。</div>
+      </div>
+      <div class="card">
+        <h3>检索 · 分类 · 格式转换</h3>
+        <div class="toolbar">
+          <input type="text" id="lib-search" placeholder="按标题 / 作者 / 标签检索" oninput="renderLibrary()" style="flex:1;min-width:180px">
+          <select id="lib-style" onchange="renderLibrary()">
+            <option value="gb">GB/T 7714</option><option value="apa">APA</option><option value="mla">MLA</option>
+          </select>
+        </div>
+        <div id="lib-list" class="scroll" style="max-height:320px"></div>
+        <div class="toolbar" style="margin-top:10px">
+          <button onclick="copyReferences()">复制当前格式</button>
+          <button onclick="downloadBib()">导出 BibTeX</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>结果摘要导出（辅助写作；论文写作模块属第三期）</h3>
+      <p class="small muted">基于当前快照自动生成，可直接复制到报告初稿；需人工核对口径。</p>
+      <div class="toolbar">
+        <button class="primary" onclick="generateReport()">生成摘要</button>
+        <button onclick="copyReport()">复制文本</button>
+      </div>
+      <pre id="report-output">点击“生成摘要”。</pre>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-localtools">
+    <h2>本地软件协同（合同第二期范围）</h2>
+    <div class="note">合同要求通过接口或脚本调度 SPSS / Stata / ArcGIS。本平台提供统一数据导出与可直接运行的脚本模板；实际执行需本机已安装相应软件，平台不远程调用、不上传数据。</div>
+    <div class="grid g3">
+      <div class="card"><h3>SPSS</h3><p class="small muted">语法模板读取标准化 CSV，生成频数与交叉表。</p><a class="btn" href="../deliver/local_tools/run_spss.sps" download>下载 .sps</a></div>
+      <div class="card"><h3>Stata</h3><p class="small muted">do-file 读取 DID 面板与逐年效应，复算回归与图示。</p><a class="btn" href="../deliver/local_tools/run_stata.do" download>下载 .do</a></div>
+      <div class="card"><h3>ArcGIS</h3><p class="small muted">ArcPy 脚本把机构点/流向 CSV 发布为要素类。</p><a class="btn" href="../deliver/local_tools/arcgis_publish.py" download>下载 .py</a></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>标准化数据文件</h3>
+      <div id="local-file-list" class="small"></div>
+      <div class="toolbar" style="margin-top:12px"><button onclick="generateBridgeNote()">生成调用说明</button></div>
+      <pre id="bridge-output">点击“生成调用说明”查看三种软件的启动命令与文件路径。</pre>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-export">
+    <h2>数据与报告导出</h2>
+    <div class="grid g3">
+      <div class="card"><h3>平台快照</h3><p class="small muted">聚合后的 JSON，用于复算本平台全部图表。</p><a class="btn" href="data/snapshot.json" download>下载 snapshot.json</a></div>
+      <div class="card"><h3>DID 可视化 CSV</h3><p class="small muted">由 WP16 导出的聚类稳健估计与逐年效应。</p><a class="btn" href="../pipeline/data/batch_001/did_robust_estimate.csv" download>估计结果 CSV</a><br><br><a class="btn" href="../pipeline/data/batch_001/did_robust_annual_effect.csv" download>逐年效应 CSV</a></div>
+      <div class="card"><h3>证据审计</h3><p class="small muted">外部出生国证据逐条 URL 与原文摘录。</p><a class="btn" href="../pipeline/data/batch_001/external_birth_evidence.csv" download>证据审计 CSV</a></div>
+    </div>
+    <div class="note">上述 CSV 位于本地数据目录，部署到公网时请确认是否包含可公开信息；本平台不上传任何数据。</div>
+  </section>
+
+  <div class="footer">OpenAlex 科研分析平台 · 第二期 MVP · 数据快照 <span id="gen-time-foot"></span></div>
+</main>
+
+<script src="data/snapshot.js"></script>
+<script>
+"use strict";
+const S = window.OA_SNAPSHOT;
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const n = (v) => (v == null ? "—" : Number(v).toLocaleString("zh-CN"));
+const f = (v, d=3) => (v == null || Number.isNaN(Number(v)) ? "—" : Number(v).toFixed(d));
+
+if (!S) {
+  document.body.innerHTML = '<div style="padding:40px;color:#b91c1c">未找到 <code>web/data/snapshot.js</code>。请先运行 <code>pipeline/export_platform_snapshot.py</code>。</div>';
+  throw new Error("snapshot.js missing");
+}
+
+$("#gen-time").textContent = "快照 " + S.generated_at.replace("T"," ").slice(0,16) + " UTC";
+$("#gen-time-foot").textContent = S.generated_at;
+
+/* ---------- tabs ---------- */
+$$("#nav button").forEach(b => b.addEventListener("click", () => {
+  $$("#nav button").forEach(x => x.classList.remove("active"));
+  $$(".tab").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  $("#tab-" + b.dataset.tab).classList.add("active");
+}));
+
+/* ---------- svg helpers ---------- */
+function hBars(target, rows, opts={}) {
+  const W = opts.width || 560, rowH = opts.rowH || 26, left = opts.left || 118, right = 60;
+  const H = Math.max(80, rows.length * rowH + 34);
+  const max = Math.max(1, ...rows.map(r => r.value));
+  const colors = opts.colors || ["#2563eb"];
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  for (let i=0;i<=4;i++){
+    const x = left + (W-left-right)*i/4;
+    s += `<line class="gridline" x1="${x}" y1="4" x2="${x}" y2="${H-24}"/><text class="tick" x="${x}" y="${H-8}" text-anchor="middle">${Math.round(max*i/4)}</text>`;
+  }
+  rows.forEach((r,i) => {
+    const y = 8 + i*rowH, w = (W-left-right) * r.value / max;
+    const c = r.color || colors[i % colors.length];
+    s += `<text class="tick" x="${left-8}" y="${y+15}" text-anchor="end">${esc(r.label)}</text>`;
+    s += `<rect class="bar" x="${left}" y="${y+2}" width="${Math.max(1,w)}" height="16" rx="3" fill="${c}"><title>${esc(r.label)}: ${n(r.value)}</title></rect>`;
+    s += `<text class="tick" x="${left+w+6}" y="${y+15}">${n(r.value)}</text>`;
+  });
+  s += "</svg>";
+  $(target).innerHTML = s;
+}
+
+function stackedBars(target, rows, keys, colors) {
+  const W=560,rowH=28,left=52,right=20,H=rows.length*rowH+40;
+  const totals = rows.map(r => keys.reduce((a,k)=>a+(r[k]||0),0));
+  const max = Math.max(1,...totals);
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  rows.forEach((r,i)=>{
+    const y=10+i*rowH, base=left, scale=(W-left-right)/max;
+    let x=base;
+    keys.forEach((k,j)=>{
+      const w=(r[k]||0)*scale;
+      s+=`<rect x="${x}" y="${y}" width="${Math.max(0,w)}" height="17" rx="2" fill="${colors[j]}"><title>${esc(r.label)} ${k}: ${n(r[k])}</title></rect>`;
+      x+=w;
+    });
+    s+=`<text class="tick" x="${base-8}" y="${y+13}" text-anchor="end">${esc(r.label)}</text>`;
+    s+=`<text class="tick" x="${x+6}" y="${y+13}">${n(totals[i])}</text>`;
+  });
+  s+=`<text class="tick" x="${left}" y="${H-8}">0</text><text class="tick" x="${W-right}" y="${H-8}" text-anchor="end">${n(max)}</text></svg>`;
+  $(target).innerHTML=s;
+}
+
+function lineChart(target, points, opts={}) {
+  const W=opts.width||1160, H=opts.height||250, L=52,R=24,T=16,B=36;
+  const vals=points.map(p=>p.y), max=Math.max(1,...vals), min=Math.min(0,...vals);
+  const x=i=>L+(W-L-R)*(points.length===1?0:i/(points.length-1));
+  const y=v=>H-B-(v-min)/(max-min||1)*(H-T-B);
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  for(let i=0;i<=4;i++){
+    const yy=T+(H-T-B)*i/4;
+    s+=`<line class="gridline" x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}"/><text class="tick" x="${L-8}" y="${yy+4}" text-anchor="end">${Math.round(max-(max-min)*i/4)}</text>`;
+  }
+  const d=points.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p.y).toFixed(1)}`).join(" ");
+  s+=`<path d="${d}" fill="none" stroke="#2563eb" stroke-width="2"/>`;
+  points.forEach((p,i)=>{ s+=`<circle cx="${x(i).toFixed(1)}" cy="${y(p.y).toFixed(1)}" r="2.6" fill="#2563eb"><title>${esc(p.label)}: ${n(p.y)}</title></circle>`; });
+  const step=Math.max(1,Math.ceil(points.length/18));
+  points.forEach((p,i)=>{ if(i%step===0||i===points.length-1) s+=`<text class="tick" x="${x(i).toFixed(1)}" y="${H-10}" text-anchor="middle">${esc(p.label)}</text>`; });
+  s+="</svg>";
+  $(target).innerHTML=s;
+}
+
+/* ---------- overview ---------- */
+const kpiDefs = [
+  ["定案学者", S.summary.scholars, "A 级消歧，HOLD/B 待复核"],
+  ["唯一作品", S.summary.works, "去重后入库"],
+  ["迁移事件", S.summary.events, "13,352 条为署名代理年"],
+  ["外部证据 treated", S.summary.treated, "人工复核后 eligible"]
+];
+$("#kpis").innerHTML = kpiDefs.map(k=>`<div class="card kpi"><div class="label">${k[0]}</div><div class="value">${n(k[1])}</div><div class="hint">${esc(k[2])}</div></div>`).join("");
+
+hBars("#chart-class", S.classification.map(r=>({label:r.observed_class, value:r.formal, color:"#2563eb"})).map((r,i)=>({...r, uncertain:S.classification[i].uncertain})), {width:560,left:52});
+/* overlay uncertain on the same rows */
+(function(){
+  const rows=S.classification; const W=560,left=52,right=20,rowH=26,H=rows.length*rowH+34;
+  const max=Math.max(1,...rows.map(r=>r.observed));
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  rows.forEach((r,i)=>{
+    const y=8+i*rowH, scale=(W-left-right)/max;
+    s+=`<text class="tick" x="${left-8}" y="${y+15}" text-anchor="end">${esc(r.observed_class)}</text>`;
+    s+=`<rect x="${left}" y="${y+2}" width="${(r.formal*scale).toFixed(1)}" height="16" rx="3" fill="#2563eb"><title>可定类 ${r.formal}</title></rect>`;
+    s+=`<rect x="${(left+r.formal*scale).toFixed(1)}" y="${y+2}" width="${(r.uncertain*scale).toFixed(1)}" height="16" rx="3" fill="#f59e0b"><title>不确定 ${r.uncertain}</title></rect>`;
+    s+=`<text class="tick" x="${left+r.observed*scale+6}" y="${y+15}">${r.observed}</text>`;
+  });
+  s+="</svg>"; $("#chart-class").innerHTML=s;
+})();
+
+stackedBars("#chart-events", S.events_by_type.map(r=>({label:r.event_type, Confirmed:r.confirmed, Probable:r.probable, Possible:r.possible})),
+  ["Confirmed","Probable","Possible"], ["#10b981","#2563eb","#f59e0b"]);
+lineChart("#chart-years", S.events_by_year.map(r=>({label:String(r.year), y:r.total})));
+
+/* ---------- network ---------- */
+function renderFlows(){
+  const mode=$("#flow-filter").value;
+  let rows=S.country_flows.filter(r=>mode==="all"||r.cross_border).slice(0,20);
+  hBars("#chart-flows", rows.map(r=>({label:`${r.from_country} → ${r.to_country}`, value:r.total, color:r.cross_border?"#2563eb":"#94a3b8"})), {width:560,left:104,rowH:24});
+  $("#flow-hint").textContent = `显示 ${rows.length} 条，共 ${S.country_flows.length} 条候选流向`;
+}
+$("#flow-filter").addEventListener("change",renderFlows); renderFlows();
+hBars("#chart-inst", S.top_institutions.slice(0,20).map(r=>({label:r.name, value:r.total, color:"#0ea5e9"})), {width:560,left:196,rowH:24});
+
+/* ---------- Tencent Maps (non-default scenario: overseas coverage, user-supplied key) ---------- */
+const TMAP_KEY = "Please apply for your own key at Tencent Location Service open platform and replace this placeholder";
+function wgs84ToGcj02(lat, lon){
+  const pi=Math.PI, a=6378245.0, ee=0.00669342162296594323;
+  function tl(x,y){let r=-100+2*x+3*y+0.2*y*y+0.1*x*y+0.2*Math.sqrt(Math.abs(x));r+=(20*Math.sin(6*x*pi)+20*Math.sin(2*x*pi))*2/3;r+=(20*Math.sin(y*pi)+40*Math.sin(y/3*pi))*2/3;r+=(160*Math.sin(y/12*pi)+320*Math.sin(y*pi/30))*2/3;return r;}
+  function tg(x,y){let r=300+x+2*y+0.1*x*x+0.1*x*y+0.1*Math.sqrt(Math.abs(x));r+=(20*Math.sin(6*x*pi)+20*Math.sin(2*x*pi))*2/3;r+=(20*Math.sin(x*pi)+40*Math.sin(x/3*pi))*2/3;r+=(150*Math.sin(x/12*pi)+300*Math.sin(x/30*pi))*2/3;return r;}
+  let dlat=tl(lon-105,lat-35),dlon=tg(lon-105,lat-35);
+  const radlat=lat/180*pi; let magic=1-ee*Math.sin(radlat)*Math.sin(radlat);
+  const sqrtmagic=Math.sqrt(magic);
+  dlat=(dlat*180)/((a*(1-ee))/(magic*sqrtmagic)*pi);
+  dlon=(dlon*180)/(a/sqrtmagic*Math.cos(radlat)*pi);
+  return {lat:lat+dlat, lon:lon+dlon};
+}
+function loadTMap(){
+  const wrap=$("#map-wrap");
+  if (TMAP_KEY.startsWith("Please apply")){
+    wrap.innerHTML='<div class="muted" style="max-width:620px">尚未配置腾讯位置服务 Key。请到 <a href="https://lbs.qq.com/dev/console/application/mine" target="_blank" rel="noopener">腾讯位置服务控制台</a> 申请 Key，替换 <code>platform.html</code> 中的 <code>TMAP_KEY</code> 占位符后重新点击。生产环境应由后端代理 Key，不要在公开前端明文保存。</div>';
+    return;
+  }
+  if (window.TMap){ initTMap(); return; }
+  const s=document.createElement("script");
+  s.src="https://map.qq.com/api/gljs?v=1.exp&key="+encodeURIComponent(TMAP_KEY);
+  s.onload=initTMap;
+  s.onerror=()=>{wrap.innerHTML='<div class="muted">地图 SDK 加载失败，请检查网络与 Key 配置。</div>';};
+  document.head.appendChild(s);
+}
+function initTMap(){
+  const wrap=$("#map-wrap");
+  wrap.innerHTML='<div id="map"></div>';
+  const pts=S.top_institutions.filter(r=>r.lat!=null&&r.lon!=null).slice(0,40);
+  const center=pts.length?wgs84ToGcj02(Number(pts[0].lat),Number(pts[0].lon)):{lat:35,lon:105};
+  const map=new TMap.Map("map",{zoom:4,center:new TMap.LatLng(center.lat,center.lon)});
+  const max=Math.max(1,...pts.map(r=>r.total));
+  const styles={};
+  pts.forEach((r,i)=>{
+    const size=Math.round(10+22*Math.sqrt(r.total/max));
+    styles["s"+i]=new TMap.MarkerStyle({width:size,height:size,anchor:{x:size/2,y:size/2},
+      src:"data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+size+'"><circle cx="'+(size/2)+'" cy="'+(size/2)+'" r="'+(size/2-1)+'" fill="#2563eb" fill-opacity="0.75" stroke="#ffffff" stroke-width="2"/></svg>')});
+  });
+  const geos=pts.map((r,i)=>{const g=wgs84ToGcj02(Number(r.lat),Number(r.lon));return {id:String(r.institution_id),styleId:"s"+i,position:new TMap.LatLng(g.lat,g.lon),properties:{name:r.name,total:r.total}};});
+  const markers=new TMap.MultiMarker({map,styles,geometries:geos});
+  const info=new TMap.InfoWindow({map,position:new TMap.LatLng(center.lat,center.lon),offset:{x:0,y:-24},enableCustom:true,content:""});
+  markers.on("click",evt=>{const p=evt.geometry.properties;info.setPosition(evt.geometry.position);info.setContent('<div style="padding:8px 10px;background:#fff;border-radius:8px;box-shadow:0 2px 10px #999;font:12px sans-serif">'+esc(p.name)+"<br>事件数 "+n(p.total)+"</div>");info.open();});
+}
+
+/* ---------- trajectories ---------- */
+$("#scholar-select").innerHTML=S.trajectories.map((t,i)=>`<option value="${i}">${esc(t.name)} · ${n(t.events.length)} 条事件 · ${esc(t.formal_class||t.observed_class||"—")}</option>`).join("");
+function renderTrajectory(){
+  const t=S.trajectories[Number($("#scholar-select").value)||0];
+  if(!t){return;}
+  const years=t.years.filter(y=>y.year>=1990);
+  const min=Math.min(...years.map(y=>y.year)), max=Math.max(...years.map(y=>y.year));
+  const span=Math.max(1,max-min);
+  let rows="";
+  years.forEach(y=>{
+    const left=((y.year-min)/span*92).toFixed(2);
+    rows+=`<div class="timeline-row"><div class="timeline-head"><b>${y.year}</b><span class="muted small">${esc(y.country||"—")} · 有效论文 ${n(y.works)}${y.tie?" · 并列":""}</span></div><div class="track"><div class="seg" style="left:${left}%;width:1.2%;background:${y.country==="CN"?"#b91c1c":"#2563eb"}"></div></div></div>`;
+  });
+  const ev=t.events.filter(e=>!e.is_suppressed).map(e=>`<tr><td>${esc(e.paper_year||"—")}</td><td>${esc(e.event_type)}</td><td>${esc(e.from_country||"—")} → ${esc(e.to_country||"—")}</td><td><span class="pill ${e.evidence_level==="Confirmed"?"ok":e.evidence_level==="Probable"?"":"warn"}">${esc(e.evidence_level)}</span></td></tr>`).join("");
+  $("#trajectory-card").innerHTML=`<div class="timeline-head"><h3 style="margin:0">${esc(t.name)}</h3><span class="small muted">观测类 ${esc(t.observed_class||"—")} / 正式类 ${esc(t.formal_class||"空")} · ${t.is_classified?"可定类":"不确定"}</span></div><div style="margin-top:10px;max-height:260px;overflow:auto">${rows||'<div class="muted small">无 1990 年后面板记录</div>'}</div><h3>事件明细</h3><div class="scroll"><table><thead><tr><th>署名年</th><th>类型</th><th>国家/地区</th><th>证据</th></tr></thead><tbody>${ev}</tbody></table></div>`;
+}
+$("#scholar-select").addEventListener("change",renderTrajectory); renderTrajectory();
+
+/* ---------- DID ---------- */
+function forest(target, rows){
+  const W=560,H=Math.max(120,rows.length*42+40),L=112,R=60;
+  const lo=Math.min(0,...rows.map(r=>Number(r.ci_low)||0)), hi=Math.max(0,...rows.map(r=>Number(r.ci_high)||0));
+  const span=(hi-lo)||1, x=v=>L+(v-lo)/span*(W-L-R);
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  s+=`<line class="axis" x1="${x(0)}" y1="8" x2="${x(0)}" y2="${H-28}"/>`;
+  rows.forEach((r,i)=>{
+    const y=22+i*42, l=x(Number(r.ci_low)||0), h=x(Number(r.ci_high)||0), b=Number(r.coefficient)||0;
+    s+=`<text class="tick" x="${L-8}" y="${y+4}" text-anchor="end">${esc(r.outcome)} / ${esc(r.specification)}</text>`;
+    s+=`<line x1="${l}" y1="${y}" x2="${h}" y2="${y}" stroke="#94a3b8" stroke-width="2"/>`;
+    s+=`<line x1="${l}" y1="${y-5}" x2="${l}" y2="${y+5}" stroke="#64748b"/><line x1="${h}" y1="${y-5}" x2="${h}" y2="${y+5}" stroke="#64748b"/>`;
+    s+=`<circle cx="${x(b)}" cy="${y}" r="5" fill="${(Number(r.p_value)<0.05)?"#b91c1c":"#2563eb"}"><title>${esc(r.outcome)}: ${f(b)} (p=${f(r.p_value)})</title></circle>`;
+    s+=`<text class="tick" x="${h+6}" y="${y+4}">${f(b)}</text>`;
+  });
+  s+=`<text class="tick" x="${L}" y="${H-8}">${f(lo,2)}</text><text class="tick" x="${W-R}" y="${H-8}" text-anchor="end">${f(hi,2)}</text></svg>`;
+  $(target).innerHTML=s;
+}
+forest("#chart-did", S.did_estimates);
+const annualByOutcome={};
+S.did_annual.forEach(r=>{(annualByOutcome[r.outcome]=annualByOutcome[r.outcome]||[]).push(r);});
+const firstOutcome=Object.keys(annualByOutcome)[0]||"moves_any";
+lineChart("#chart-did-annual", (annualByOutcome[firstOutcome]||[]).map(r=>({label:String(r.year),y:Number(r.coefficient)||0})), {width:560,height:240});
+$("#did-table").innerHTML=`<thead><tr><th>结果变量</th><th>设定</th><th>系数</th><th>CR1 SE</th><th>p</th><th>95% CI</th><th>treated/control</th><th>平行趋势</th></tr></thead><tbody>`+
+  S.did_estimates.map(r=>`<tr><td>${esc(r.outcome)}</td><td>${esc(r.specification)}</td><td>${f(r.coefficient)}</td><td>${f(r.std_error)}</td><td>${f(r.p_value)}</td><td>[${f(r.ci_low)}, ${f(r.ci_high)}]</td><td>${n(r.n_treated)}/${n(r.n_control)}</td><td>${r.parallel_trend_passed?'<span class="pill ok">通过</span>':'<span class="pill warn">未通过</span>'}</td></tr>`).join("")+"</tbody>";
+
+/* ---------- cohort ---------- */
+$("#cohort-table").innerHTML=`<thead><tr><th>学者</th><th>姓名</th><th>置信度</th><th>出生国</th><th>判定方法</th><th>外部证据</th><th>来源数</th><th>treated</th></tr></thead><tbody>`+
+  S.cohort.map(r=>`<tr><td>${n(r.scholar_id)}</td><td>${esc(r.name)}</td><td><span class="pill ${r.confidence==="high"?"":"warn"}">${esc(r.confidence||"—")}</span></td><td>${esc(r.birth_country||"—")}</td><td>${esc(r.determination_method||"—")}</td><td>${esc(r.verdict||"未复核")}</td><td>${n(r.source_count)}</td><td>${r.eligible_treated?'<span class="pill ok">是</span>':"否"}</td></tr>`).join("")+"</tbody>";
+
+/* ---------- report assistant ---------- */
+function generateReport(){
+  const e=S.events_by_type, cls=S.classification;
+  const cross=S.country_flows.filter(r=>r.cross_border).slice(0,5).map(r=>`${r.from_country}→${r.to_country}（${n(r.total)}）`).join("、");
+  const did=S.did_estimates.find(r=>r.outcome==="moves_any"&&r.specification==="2x2");
+  const txt=[
+    "OpenAlex 科学家空间流动数据库 · 结果摘要（自动生成，需人工复核）",
+    "",
+    "1. 数据规模：本次快照基于 1,000 人试跑，定案学者 "+n(S.summary.scholars)+" 人，去重作品 "+n(S.summary.works)+" 篇，署名 "+n(S.summary.authorships)+" 条，覆盖机构 "+n(S.summary.institutions)+" 家。该规模仅用于方法验证，不代表全量交付。",
+    "",
+    "2. 事件识别：构建年度面板 "+n(S.summary.annual_rows)+" 行，识别 C1–C5 事件 "+n(S.summary.events)+" 条，其中 "+e.map(r=>r.event_type+" "+n(r.total)).join("、")+"。绝大多数事件的 actual_year 为空，年份以署名年代理，不得直接解释为真实迁移时点。",
+    "",
+    "3. 学者分类：M1–M8 八类中，"+cls.filter(r=>r.formal>0).map(r=>r.observed_class+" "+n(r.formal)).join("、")+" 人可正式定类；"+n(S.summary.scholars-cls.reduce((a,r)=>a+r.formal,0))+" 人因阴性维度仍有 Possible 未决候选而留空正式类别。",
+    "",
+    "4. 流动方向：高频跨国/地区流向为 "+(cross||"样本内无显著跨国流向")+"。国家级流向包含大量同国换机构（C1），解读时须区分国内迁移与跨境迁移。",
+    "",
+    "5. 中国背景队列与 DID：候选队列 "+n(S.summary.cohort_members)+" 人，经外部证据复核后 eligible treated "+n(S.summary.treated)+" 人。2018 DID 2x2 系数 "+(did?f(did.coefficient):"—")+"（聚类 p="+(did?f(did.p_value):"—")+"），但事件研究联合平行趋势未通过，且 treated 样本极小；结论应限定为“流程验证”，不得作政策推断。",
+    "",
+    "6. 边界声明：外部出生国证据来自公开来源，非官方出生证明；cohort_member.birth_country 保持 NULL。空间可视化须使用合规底图，文献检索与格式转换、大模型写作尚未建设。"
+  ].join("\n");
+  $("#report-output").textContent=txt;
+}
+function copyReport(){
+  const t=$("#report-output").textContent;
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>alert("已复制"),()=>fallbackCopy(t));}
+  else fallbackCopy(t);
+}
+function fallbackCopy(t){const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove();alert("已复制");}
+
+/* ---------- literature module (local-only) ---------- */
+const LIB_KEY="oa_literature_v1";
+let lib=[];
+try{lib=JSON.parse(localStorage.getItem(LIB_KEY)||"[]");}catch(e){lib=[];}
+let currentRefs=[];
+function saveLib(){localStorage.setItem(LIB_KEY,JSON.stringify(lib));updateLibCount();}
+function updateLibCount(){$("#lib-count").textContent=`已存 ${lib.length} 条`;}
+function autoTags(s){
+  const t=String(s||"").toLowerCase(), out=[];
+  if(/migrat|流动|迁移|mobility/.test(t))out.push("流动");
+  if(/china|chinese|中国/.test(t))out.push("中国");
+  if(/did|difference-in-differences|双重差分/.test(t))out.push("DID");
+  if(/visual|map|heat|可视化|地图/.test(t))out.push("可视化");
+  if(/openalex|bibliometric|文献计量/.test(t))out.push("数据源");
+  if(/career|cv|履历|affiliation/.test(t))out.push("履历");
+  if(/institution|机构/.test(t))out.push("机构");
+  return out.length?out:["未分类"];
+}
+function parseBib(text){
+  const out=[];
+  const re=/@(\w+)\s*\{([^,]+),([\s\S]*?)\}/g;
+  let m;
+  while((m=re.exec(text))!==null){
+    const type=m[1], key=m[2].trim(), body=m[3];
+    const fields={};
+    const fre=/(\w+)\s*=\s*(?:\{([^{}]*)\}|"([^"]*)"|([^,\n]+))/g;
+    let f;
+    while((f=fre.exec(body))!==null){fields[f[1].toLowerCase()]=(f[2]||f[3]||f[4]||"").trim();}
+    const title=fields.title||"(无题名)";
+    out.push({type,key,author:fields.author||"",title,journal:fields.journal||fields.booktitle||"",year:fields.year||"",volume:fields.volume||"",issue:fields.number||"",pages:fields.pages||"",doi:fields.doi||"",tags:autoTags(title+" "+fields.author)});
+  }
+  return out;
+}
+function importBib(){
+  const parsed=parseBib($("#bib-input").value);
+  if(!parsed.length){alert("未解析到 BibTeX 条目，请检查格式。");return;}
+  const keys=new Set(lib.map(x=>x.key));
+  let added=0;
+  parsed.forEach(r=>{if(!keys.has(r.key)){lib.push(r);keys.add(r.key);added++;}});
+  saveLib();renderLibrary();
+  alert(`解析 ${parsed.length} 条，新增 ${added} 条。`);
+}
+function clearLib(){if(confirm("确认清空本机文献库？")){lib=[];saveLib();renderLibrary();}}
+function fmtAuthors(s,style){
+  const arr=String(s||"").split(/\s+and\s+/i).map(x=>x.trim()).filter(Boolean);
+  if(!arr.length)return "佚名";
+  const cv=(a)=>{const p=a.split(",").map(x=>x.trim());const last=p[0]||a;const first=(p[1]||"").split(/\s+/).map(x=>x[0]+".").join(" ");return {last,first,full:first?`${last}, ${first}`:last,gb:first?`${first} ${last}`:last};};
+  if(style==="gb")return arr.map(a=>cv(a).gb).join(", ");
+  if(style==="apa")return arr.map(a=>cv(a).full).join(arr.length>2?", & ":arr.length===2?" & ":"");
+  return arr.map(a=>{const c=cv(a);return c.first?`${c.last}, ${c.first}`:c.last;}).join(arr.length>2?", and ":arr.length===2?" and ":"");
+}
+function formatRef(r,style){
+  const pages=String(r.pages||"").replace(/--/g,"–");
+  if(style==="apa")return `${fmtAuthors(r.author,"apa")} (${r.year||"n.d."}). ${r.title}. ${r.journal?`<i>${esc(r.journal)}</i>`:""}${r.volume?`, ${esc(r.volume)}`:""}${pages?`(${pages})`:""}.${r.doi?" https://doi.org/"+esc(r.doi):""}`;
+  if(style==="mla")return `${fmtAuthors(r.author,"mla")}. "${esc(r.title)}." ${r.journal?`<i>${esc(r.journal)}</i>`:""}${r.volume?`, vol. ${esc(r.volume)}`:""}${r.year?`, ${esc(r.year)}`:""}${pages?`, pp. ${pages}`:""}.`;
+  return `${fmtAuthors(r.author,"gb")}. ${esc(r.title)}[J]. ${esc(r.journal||"未刊")}, ${esc(r.year||"")}${r.volume?`, ${esc(r.volume)}`:""}${pages?`: ${pages}`:""}.`;
+}
+function renderLibrary(){
+  updateLibCount();
+  const q=($("#lib-search").value||"").trim().toLowerCase();
+  const style=$("#lib-style").value;
+  const rows=lib.filter(r=>!q||[r.title,r.author,r.journal,r.tags.join(" ")].join(" ").toLowerCase().includes(q));
+  currentRefs=rows.map(r=>formatRef(r,style).replace(/<[^>]+>/g,""));
+  $("#lib-list").innerHTML=rows.length?rows.map(r=>`<div style="padding:10px 4px;border-bottom:1px solid var(--line)"><div>${formatRef(r,style)}</div><div style="margin-top:4px">${r.tags.map(t=>`<span class="pill">${esc(t)}</span>`).join(" ")} <span class="muted small">${esc(r.key)}</span></div></div>`).join(""):'<div class="muted small">暂无题录，请在左侧粘贴 BibTeX 导入。</div>';
+}
+function copyReferences(){if(!currentRefs.length){alert("当前没有可复制的题录。");return;}copyText(currentRefs.map((x,i)=>`[${i+1}] ${x}`).join("\n"));}
+function copyText(t){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>alert("已复制"),()=>fallbackCopy(t));}else fallbackCopy(t);}
+function downloadBib(){
+  if(!lib.length){alert("文献库为空。");return;}
+  const text=lib.map(r=>`@${r.type}{${r.key},\n  author={${r.author}},\n  title={${r.title}},\n  journal={${r.journal}},\n  year={${r.year}},\n  volume={${r.volume}},\n  number={${r.issue}},\n  pages={${r.pages}}\n}`).join("\n\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type:"text/plain;charset=utf-8"}));a.download="openalex_library.bib";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},10000);
+}
+renderLibrary();
+
+/* ---------- local software bridge ---------- */
+const BRIDGE_FILES=["did_panel.csv","did_robust_estimate.csv","did_robust_annual_effect.csv","mobility_event_sample.csv","mobility_class_summary.csv"];
+$("#local-file-list").innerHTML=BRIDGE_FILES.map(f=>`<a href="../deliver/local_tools/data/${f}" download>${f}</a>`).join(" · ");
+function generateBridgeNote(){
+  $("#bridge-output").textContent=[
+    "本地软件协同调用说明（数据均在本机，不上传）",
+    "",
+    "1) SPSS：打开 SPSS → 文件 → 打开 → 数据 → 选择 deliver/local_tools/data/did_panel.csv；",
+    "   或在本机命令行执行：stats -f deliver/local_tools/run_spss.sps",
+    "",
+    "2) Stata：本机命令行执行：stata -b do deliver/local_tools/run_stata.do",
+    "",
+    "3) ArcGIS Pro：在已配置 ArcPy 的 Python 环境执行：python deliver/local_tools/arcgis_publish.py",
+    "",
+    "说明：脚本模板只读取标准 CSV 并生成频数/回归/要素类；若本机未安装对应软件，模板保留为可审计交付物，不伪造执行结果。"
+  ].join("\n");
+}
+</script>
+</body>
+</html>
