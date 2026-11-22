@@ -62,7 +62,7 @@ OpenAlex/
 │   ├── verify_poc.sql                    # 导入后可执行的一致性/完整性核对
 │   ├── 三人小样原型_部署文档.md
 │   └── 三人小样原型_部署文档_Docker_WSL版.md
-├── pipeline/                         # 全量跑批与落库（WP0–WP8）
+├── pipeline/                         # 全量跑批、落库与分析层（WP0–WP10）
 │   ├── README.md                         # key/额度、环境、工作包总览、运行顺序、实机结果
 │   ├── config.py                         # 环境变量/路径/限速
 │   ├── oa_client.py                      # 认证、限速、429 额度保护、请求留痕
@@ -76,6 +76,10 @@ OpenAlex/
 │   ├── wp6_extract_institutions.py       # WP6：从 works 抽机构/ROR/别名
 │   ├── wp7_load_institutions.py          # WP7：国家/机构/ROR 入库
 │   ├── wp8_backfill_institution.py       # WP8：回填 matched_institution_id
+│   ├── wp9_build_panel.py                # WP9：年度面板 + 机构占比
+│   ├── wp10_event_engine.py              # WP10：C1–C5 事件 + 三指标证据
+│   ├── dbutil.py                         # psql 封装（检查退出码）
+│   ├── tests/test_pipeline_safety.py     # P0 静默丢数回归测试（7 项）
 │   ├── export_requests_sql.py            # 请求留痕导入数据库
 │   └── data/batch_001/                   # 试跑产物（gitignored，不上传）
 └── output/                           # 分析与交付物
@@ -150,7 +154,7 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
 - Newman 证据完整、判为 M8；Becke / Perdew 因任职年份缺失与并列年，`mobility_class` 正式字段留空。
 - 6 条有效迁移中，2 条用署名年代理、无真实任职年份；70% 阈值下部分事件从 Probable 降为 Possible。
 - 「中国出生、现居美国」人群筛选、DID 分析、文献模块、论文写作、本地化部署尚未实施。
-- 全量跑批尚未开始（目标 105,027 人）；但 **1,000 人试跑已全部完成并完成落库**（详见 `pipeline/README.md`）：抓取 922,627 篇作品（请求 10,760 次），去重入库 865,111 篇 work；消歧定案 scholar=896 / identity_map=1,700；署名 846,012 条；机构 31,388（全带 ROR）+ 别名 181.6 万；已回填 646,069 条署名的 `matched_institution_id`。数据库约 1.36 GB。
+- 全量跑批尚未开始（目标 105,027 人）；但 **1,000 人试跑已全部完成落库并跑通分析层**（详见 `pipeline/README.md`）：抓取 922,627 篇作品（请求 10,760 次），去重入库 865,111 篇 work；消歧定案 scholar=896 / identity_map=1,700；署名 846,012 条；机构 31,388（全带 ROR）+ 别名 181.6 万；已回填 646,069 条署名的 `matched_institution_id`。分析层已建 42,046 个学者年面板与 13,355 个 C1–C5 事件，但 **D/I/S 分类、中国学者队列、DID 均未做**。数据库约 2.1 GB。
 - 消歧按严格 A 级执行，HOLD（98 人）与 B 级（178 人）待人工复核；这些数字属小样试跑，非全量成果。
 - 未做用户人工抽样审计；报告作者主动声明「只完成小样本，不可宣称全方案通过」。
 
@@ -168,9 +172,9 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
   `PGPASSWORD=$(cat ~/.openalex_db_pass) psql -h 127.0.0.1 -p 5433 -U postgres -d openalex`（AGE 容器）。
 - AGE 镜像的旧 tag `PG16_latest` 已失效，正确 tag 为 `release_PG16_1.6.0`。若 Docker Hub 直连超时，用 `docker.1ms.run` 镜像站拉取后 `docker tag`。
 
-### 1,000 人试跑落库（原生 PG17:5432，2026-11-22）
+### 1,000 人试跑落库与分析层（原生 PG17:5432，2026-11-22）
 
-`pipeline/`（WP0–WP8）已在原生 PG17 的 `openalex` 库完成 1,000 人试跑落库，规模约 1.36 GB：
+`pipeline/`（WP0–WP10）已在原生 PG17 的 `openalex` 库完成 1,000 人试跑落库并跑通分析层，规模约 2.1 GB：
 
 | 表 | 行数 | 说明 |
 |---|---|---|
@@ -181,8 +185,10 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
 | `country` / `institution` | 203 / 31,388 | 机构全部带 ROR |
 | `institution_alias` | 1,815,799 | 全 confirmed |
 | 已回填 `matched_institution_id` | 646,069 | 占署名 76.37%、占有署名串者 95.85%，孤儿外键 0 |
+| `annual_panel` / `affiliation_share` | 42,046 / 96,481 | 年度众数主机构、并列标记、机构署名占比 |
+| `mobility_event` / `event_evidence` | 13,355 / 53,425 | C1–C5 事件与四判据 + external_cv 证据，规则版本 `A_1000_v1` |
 
-运行顺序、断点续跑、额度自查与全部踩坑详见 `pipeline/README.md`。下一阶段为年度主机构/主国家计算 → C1–C5 事件 → DID。
+分析层边界：13,350 条事件无真实任职年份（签名为代理年），5 条 Confirmed 借用 3 人小样履历；`class_rule` 仅有 M8 一条，故 D/I/S 与 M1–M8 **未自动定类**；「中国出生、现居美国」队列无数据源（`birth_country_hint` 全 NULL），DID 未做。运行顺序、断点续跑、回归测试、额度自查与全部踩坑详见 `pipeline/README.md`。
 
 ## 技术栈
 
