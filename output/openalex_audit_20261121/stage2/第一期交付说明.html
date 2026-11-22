@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="docx-page-size" content="A4">
+<title>第一期交付说明与待确认事项</title>
+<style>
+  @page { @bottom-center { content: counter(page); } }
+  body { font-family: "SimSun", "宋体", serif; font-size: 12pt; color: #000; line-height: 1.7; }
+</style>
+</head>
+<body>
+<section role="body">
+  <h1 style="font-family:'SimHei','黑体',sans-serif; font-size:20pt; text-align:center; margin:0 0 4pt 0;">OpenAlex 科学家空间流动数据库项目</h1>
+  <h2 style="font-family:'SimHei','黑体',sans-serif; font-size:15pt; text-align:center; margin:0 0 10pt 0;">第一期交付说明与待确认事项</h2>
+  <p style="font-size:10.5pt; text-align:center; color:#555; text-indent:0; margin:0 0 14pt 0;">致委托方　|　2026-11-23　|　本说明对应第一期验收沟通，与《验收质疑清单》配套阅读</p>
+
+  <h3 style="font-family:'SimHei','黑体',sans-serif; font-size:13pt; margin:12pt 0 6pt 0;">一、本期已完成的工作</h3>
+  <p style="text-indent:2em; margin:0 0 6pt 0;"><strong>方法可行性已充分验证：</strong>以 Elsevier 2017 高被引名单为总体样本，完成 3 人全链路小样验证，并扩展至 1,000 人试跑（占总体的 0.95%），WP0–WP16 全工作包跑通。</p>
+  <p style="text-indent:2em; margin:0 0 6pt 0;"><strong>数据地基已建成（约 2.1 GB）：</strong>抓取作品 922,627 篇、去重入库 865,111 篇；定案学者 896 人、署名 846,012 条；机构 31,388 家（全部带 ROR）、机构别名 181.6 万条；646,069 条署名已回填机构 ID。</p>
+  <p style="text-indent:2em; margin:0 0 6pt 0;"><strong>分析层已跑出结果：</strong>42,046 个学者年面板、13,355 条 C1–C5 迁移事件、53,425 行判据证据；896 人完成 D/I/S→M1–M8 分类（631 人证据充分可正式定类）。</p>
+  <p style="text-indent:2em; margin:0 0 6pt 0;"><strong>重点研究链路已打通：</strong>中国背景候选队列 111 人（7 high / 104 low）+ 819 行信号证据；外部出生国证据 15 行（逐条留公开来源 URL 与原文）；2018 年 DID 面板 3,359 组-年，含学者层聚类稳健 SE 与平行趋势联合 F 检验。</p>
+  <p style="text-indent:2em; margin:0 0 6pt 0;"><strong>配套工具已交付：</strong>面向最终用户的纯前端自助抓取网站已上线，客户可自行填 key、抓数据、导出结果。</p>
+
+  <h3 style="font-family:'SimHei','黑体',sans-serif; font-size:13pt; margin:12pt 0 6pt 0;">二、交付边界（如实说明）</h3>
+  <p style="text-indent:2em; margin:0 0 4pt 0;">· 当前为 1,000 人<strong>试跑规模</strong>，全量 10.5 万 / 20 万尚未启动。</p>
+  <p style="text-indent:2em; margin:0 0 4pt 0;">· 13,355 条事件中 <strong>13,350 条以署名年代理真实任职年</strong>，轨迹仍属候选层。</p>
+  <p style="text-indent:2em; margin:0 0 4pt 0;">· <strong>265 人正式分类留空</strong>（阴性维度存在 Possible 未决候选），仅记观测类。</p>
+  <p style="text-indent:2em; margin:0 0 4pt 0;">· <code>birth_country</code> 字段<strong>全部为空</strong>，外部证据仅覆盖 7 名 high 候选；104 名 low 未核。</p>
+  <p style="text-indent:2em; margin:0 0 4pt 0;">· DID 的 treated 仅 5 人，两套 SE 口径存在矛盾（2x2 p=0.005 / 事件研究 p=0.35）——<strong>只证明流程可跑，不构成政策结论</strong>。</p>
+  <p style="text-indent:2em; margin:0 0 6pt 0;">· 空间可视化、文献模块、论文写作、本地化部署：按合同约定属后续期次，本期无交付内容。</p>
+
+  <h3 style="font-family:'SimHei','黑体',sans-serif; font-size:13pt; margin:12pt 0 6pt 0;">三、需委托方书面确认的事项</h3>
+  <table style="width:100%; border-collapse:collapse; font-size:10.5pt;">
+    <thead>
+      <tr style="background:#e8e8e8;">
+        <th style="border:1px solid #999; padding:5pt; width:6%;">#</th>
+        <th style="border:1px solid #999; padding:5pt; width:26%;">事项</th>
+        <th style="border:1px solid #999; padding:5pt;">说明 / 我方建议</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="border:1px solid #999; padding:5pt; text-align:center;">1</td><td style="border:1px solid #999; padding:5pt;"><strong>第一期验收口径</strong></td><td style="border:1px solid #999; padding:5pt;">按"方法可行性验证通过 + 数据地基施工完成"验收，还是按"完整数据交付完成"验收？此项决定后续付款节点，建议优先明确。</td></tr>
+      <tr><td style="border:1px solid #999; padding:5pt; text-align:center;">2</td><td style="border:1px solid #999; padding:5pt;"><strong>方法口径</strong></td><td style="border:1px solid #999; padding:5pt;">机构/国家占比的分母定义、并列主状态处理、阈值（60%/70%/50%）、严格 A 级消歧口径——上述参数由我方按方案 8.5 节透明实施，请确认是否接受；不接受则确认后重算。</td></tr>
+      <tr><td style="border:1px solid #999; padding:5pt; text-align:center;">3</td><td style="border:1px solid #999; padding:5pt;"><strong>265 人定案与事件定级</strong></td><td style="border:1px solid #999; padding:5pt;">265 人正式类的定案依据；13,350 条代理年事件是补履历年份，还是明确标注为"候选"。这是从"事件候选"升级为"轨迹库"的关键。</td></tr>
+      <tr><td style="border:1px solid #999; padding:5pt; text-align:center;">4</td><td style="border:1px solid #999; padding:5pt;"><strong>消歧复核计划</strong></td><td style="border:1px solid #999; padding:5pt;">98 名 HOLD、178 名 B 级学者的复核安排，及其对样本代表性与统计口径的影响。</td></tr>
+      <tr><td style="border:1px solid #999; padding:5pt; text-align:center;">5</td><td style="border:1px solid #999; padding:5pt;"><strong>中国学者筛选口径</strong></td><td style="border:1px solid #999; padding:5pt;">外部出生国数据源、人工复核样例、可接受的准确率；7 名代理候选升级为正式 treated 的标准。</td></tr>
+      <tr><td style="border:1px solid #999; padding:5pt; text-align:center;">6</td><td style="border:1px solid #999; padding:5pt;"><strong>全量跑批资源</strong></td><td style="border:1px solid #999; padding:5pt;">10.5 万 / 20 万人的交付时间表，API 额度、算力与磁盘预算（1,000 人已产生约 8.6 GB 中间文件）。</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="font-family:'SimHei','黑体',sans-serif; font-size:13pt; margin:12pt 0 6pt 0;">四、建议的下一步</h3>
+  <p style="text-indent:2em; margin:0 0 4pt 0;">1. <strong>先确认第 1 项验收口径</strong>——口径未定前，技术产出再多也难以对应付款节点。</p>
+  <p style="text-indent:2em; margin:0 0 4pt 0;">2. 就第 2–5 项取得书面确认后，我方补齐 265 人定类与代理年事件证据，形成可验收的"1,000 人完整轨迹库"。</p>
+  <p style="text-indent:2em; margin:0 0 4pt 0;">3. 启动用户人工抽样审计（覆盖新增 1,000 人），并留存审计记录。</p>
+  <p style="text-indent:2em; margin:0 0 10pt 0;">4. 第 6 项确认后启动全量跑批。</p>
+
+  <p style="text-indent:0; font-size:10.5pt; color:#555; border-top:1px solid #ccc; padding-top:8pt; margin-top:12pt;"><strong>一句话总结：</strong>本期交付的是"经过 1,000 人规模验证的方法 + 可审计的数据地基"，方法链路与工程能力已过关；距离合同标的的"20 万学者轨迹库"尚有规模与证据两道门槛，需双方就验收口径与上述事项达成一致后推进。</p>
+</section>
+</body>
+</html>
