@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenAlex 学者作品自助抓取</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f6fb; --bg-soft: #eef1f8; --card: #ffffff; --line: #e6e9f2;
+    --text: #1a2233; --muted: #6b7488; --accent: #4f46e5; --accent-2: #7c3aed;
+    --accent-soft: #eef2ff; --ok: #10b981; --ok-soft: #ecfdf5; --warn: #f59e0b;
+    --warn-soft: #fffbeb; --err: #ef4444; --err-soft: #fef2f2;
+    --side: #141a2b; --side-text: #c3cbdc; --radius: 14px;
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 16px rgba(16,24,40,.06);
+  }
+  [data-theme="dark"] {
+    --bg: #0f1523; --bg-soft: #151c2e; --card: #1a2237; --line: #28314a;
+    --text: #e6ebf5; --muted: #8a94ad; --accent: #818cf8; --accent-2: #a78bfa;
+    --accent-soft: #232c4d; --ok: #34d399; --ok-soft: #122b26; --warn: #fbbf24;
+    --warn-soft: #2b2415; --err: #f87171; --err-soft: #2b1a1a; --side: #0a0f1c;
+    --side-text: #98a2ba; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Inter", -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+         background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6;
+         transition: background .25s, color .25s; }
+  a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+  code { font-family: "SF Mono", Consolas, monospace; font-size: 12px; background: var(--bg-soft);
+         padding: 1px 6px; border-radius: 5px; }
+  .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+  @media (max-width: 900px) { .app { grid-template-columns: 1fr; } .sidebar { display: none; } }
+  .sidebar { background: var(--side); color: var(--side-text); padding: 24px 18px;
+             display: flex; flex-direction: column; gap: 4px; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; padding: 0 8px; }
+  .brand .logo { width: 34px; height: 34px; border-radius: 9px; flex: 0 0 auto;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 16px;
+    box-shadow: 0 4px 12px rgba(99,102,241,.4); }
+  .brand .name { font-weight: 700; color: #fff; font-size: 15px; line-height: 1.2; }
+  .brand .tag { font-size: 11px; opacity: .55; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 9px;
+    cursor: pointer; color: var(--side-text); font-weight: 500; transition: .15s; }
+  .nav-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+  .nav-item.active { background: rgba(99,102,241,.18); color: #fff; }
+  .nav-item .ico { width: 18px; text-align: center; }
+  .sidebar .foot { margin-top: auto; font-size: 11px; opacity: .45; padding: 12px 8px 0; }
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .topbar { display: flex; align-items: center; gap: 14px; padding: 14px 28px;
+    background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
+  .topbar h1 { font-size: 17px; font-weight: 700; margin: 0; }
+  .topbar .spacer { flex: 1; }
+  .pill { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 20px;
+          font-size: 12.5px; font-weight: 600; }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .pill.idle { background: var(--bg-soft); color: var(--muted); } .pill.idle .dot { background: var(--muted); }
+  .pill.running { background: var(--accent-soft); color: var(--accent); }
+  .pill.running .dot { background: var(--accent); animation: blink 1s infinite; }
+  .pill.paused { background: var(--warn-soft); color: var(--warn); } .pill.paused .dot { background: var(--warn); }
+  .pill.done { background: var(--ok-soft); color: var(--ok); } .pill.done .dot { background: var(--ok); }
+  .pill.error { background: var(--err-soft); color: var(--err); } .pill.error .dot { background: var(--err); }
+  @keyframes blink { 50% { opacity: .25; } }
+  .icon-btn { width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--line);
+    background: var(--card); cursor: pointer; display: grid; place-items: center;
+    font-size: 16px; color: var(--muted); transition: .15s; }
+  .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .content { padding: 26px 28px 60px; max-width: 1120px; width: 100%; margin: 0 auto; }
+  .steps { display: flex; gap: 8px; margin-bottom: 22px; }
+  .step { flex: 1; display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    font-weight: 600; font-size: 13px; transition: .15s; }
+  .step .num { width: 26px; height: 26px; border-radius: 50%; background: var(--bg-soft);
+    color: var(--muted); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+  .step.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .step.active .num { background: var(--accent); color: #fff; }
+  .step.done .num { background: var(--ok); color: #fff; }
+  @media (max-width: 640px) { .steps { flex-direction: column; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px 24px; margin-bottom: 18px; box-shadow: var(--shadow); }
+  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .card-head .step-no { width: 24px; height: 24px; border-radius: 7px; background: var(--accent);
+    color: #fff; font-size: 13px; font-weight: 700; display: grid; place-items: center; }
+  .card-head h2 { font-size: 15px; font-weight: 700; margin: 0; }
+  label { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; padding: 10px 13px; border: 1px solid var(--line); border-radius: 9px;
+    font-size: 14px; font-family: inherit; color: var(--text); background: var(--card);
+    transition: border-color .15s, box-shadow .15s; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft); }
+  textarea { min-height: 140px; resize: vertical; font-family: "SF Mono", Consolas, monospace; font-size: 13px; }
+  ::placeholder { color: var(--muted); opacity: .6; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 9px;
+    border: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+    transition: .15s; white-space: nowrap; }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+    box-shadow: 0 4px 14px rgba(99,102,241,.35); }
+  .btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .btn-ghost { background: var(--card); color: var(--text); border: 1px solid var(--line); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: var(--err-soft); color: var(--err); }
+  .btn-danger:hover { border-color: var(--err); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; filter: none; transform: none; }
+  .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .row > div { flex: 1 1 160px; } .row > .grow2 { flex: 2 1 300px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .msg { font-size: 13px; margin-top: 10px; font-weight: 500; }
+  .msg.ok { color: var(--ok); } .msg.err { color: var(--err); }
+  .tabs { display: inline-flex; background: var(--bg-soft); border-radius: 10px; padding: 4px;
+    gap: 4px; margin-bottom: 16px; }
+  .tabs button { padding: 8px 16px; border: none; border-radius: 8px; background: transparent;
+    cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); font-family: inherit; transition: .15s; }
+  .tabs button.active { background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+  .progress-wrap { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+  .ring { position: relative; width: 130px; height: 130px; flex: 0 0 auto; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .ring-bg { stroke: var(--bg-soft); }
+  .ring .ring-fg { stroke: url(#grad); transition: stroke-dashoffset .5s ease; }
+  .ring .ring-label { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+  .ring .ring-label .pct { font-size: 26px; font-weight: 800; }
+  .ring .ring-label .cap { font-size: 11px; color: var(--muted); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; flex: 1; }
+  .stat { background: var(--bg-soft); border-radius: 11px; padding: 14px 16px; }
+  .stat .n { font-size: 22px; font-weight: 800; line-height: 1.2; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .stat.accent .n { color: var(--accent); } .stat.ok .n { color: var(--ok); } .stat.warn .n { color: var(--warn); }
+  .log-box { background: #0d1220; color: #aeb9d0; border-radius: 10px; padding: 14px 16px;
+    font-family: "SF Mono", Consolas, monospace; font-size: 12px; height: 180px;
+    overflow-y: auto; line-height: 1.7; }
+  [data-theme="dark"] .log-box { background: #070b16; }
+  .log-box .t { color: #5b6577; } .log-box .ok { color: #34d399; }
+  .log-box .err { color: #f87171; } .log-box .warn { color: #fbbf24; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  tr:hover td { background: var(--bg-soft); }
+  .empty { text-align: center; color: var(--muted); padding: 30px; font-size: 13px; }
+  .export-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .export-item { border: 1px solid var(--line); border-radius: 11px; padding: 14px; cursor: pointer;
+    transition: .15s; display: flex; align-items: center; gap: 12px; }
+  .export-item:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-1px); }
+  .export-item .fi { width: 34px; height: 34px; border-radius: 8px; background: var(--accent-soft);
+    color: var(--accent); display: grid; place-items: center; font-size: 15px; flex: 0 0 auto; }
+  .export-item .fn { font-weight: 600; font-size: 13px; }
+  .export-item .fs { font-size: 11px; color: var(--muted); }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: var(--bg);
+    padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    box-shadow: 0 8px 30px rgba(0,0,0,.3); opacity: 0; transform: translateY(10px); transition: .25s; z-index: 200; }
+  .toast.show { opacity: 1; transform: none; }
+  .toast.err { background: var(--err); color: #fff; } .toast.ok { background: var(--ok); color: #fff; }
+  .keybox { background: var(--warn-soft); border: 1px solid var(--warn); border-radius: 10px;
+    padding: 12px 16px; font-size: 12.5px; color: var(--warn); margin-bottom: 14px; display: none; }
+  .keybox.show { display: block; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">OA</div><div><div class="name">学者作品抓取</div><div class="tag">OpenAlex Web</div></div></div>
+    <div class="nav-item active" data-scroll="step-key"><span class="ico">🔑</span> API Key</div>
+    <div class="nav-item" data-scroll="step-list"><span class="ico">👥</span> 学者名单</div>
+    <div class="nav-item" data-scroll="step-run"><span class="ico">⚙️</span> 抓取控制</div>
+    <div class="nav-item" data-scroll="step-export"><span class="ico">📦</span> 结果导出</div>
+    <div class="foot">抓取在您浏览器本地进行<br>key 与数据不经任何服务器</div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h1>学者作品自助抓取工具</h1>
+      <span class="pill idle" id="top-pill"><span class="dot"></span><span id="top-status">空闲</span></span>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="btn-theme" title="切换主题">🌓</button>
+    </div>
+
+    <div class="content">
+      <div class="steps">
+        <div class="step active" id="step-1"><span class="num">1</span> 设置 Key</div>
+        <div class="step" id="step-2"><span class="num">2</span> 选名单</div>
+        <div class="step" id="step-3"><span class="num">3</span> 抓取</div>
+        <div class="step" id="step-4"><span class="num">4</span> 导出</div>
+      </div>
+
+      <div class="card" id="step-key">
+        <div class="card-head"><div class="step-no">1</div><h2>设置 OpenAlex API Key</h2></div>
+        <div class="keybox" id="key-warn">⚠️ 您的 key 只保存在本浏览器（localStorage），不会发送到任何服务器。</div>
+        <div class="row">
+          <div class="grow2"><input type="text" id="key" placeholder="粘贴您的 API key" autocomplete="off"></div>
+          <button class="btn btn-primary" id="btn-key">保存 Key</button>
+        </div>
+        <div class="hint">
+          免费 key 每天 $1 额度（约 1 万次检索）、30 请求/秒。前往
+          <a href="https://openalex.org/signup" target="_blank">openalex.org/signup</a> 注册，
+          再到 <a href="https://openalex.org/settings/api-key" target="_blank">设置页</a> 复制，并到邮箱点激活链接。
+          <span id="key-status"></span>
+        </div>
+      </div>
+
+      <div class="card" id="step-list">
+        <div class="card-head"><div class="step-no">2</div><h2>选择学者名单</h2></div>
+        <div class="tabs">
+          <button id="tab-preset" class="active">预置名单（105,026 人）</button>
+          <button id="tab-paste">自传名单</button>
+        </div>
+        <div id="panel-preset">
+          <div class="row">
+            <div><label>起始序号（从 1 起）</label><input type="number" id="offset" value="1" min="1"></div>
+            <div><label>人数</label><input type="number" id="limit" value="10" min="1"></div>
+            <div><button class="btn btn-primary" id="btn-load-preset">加载名单</button></div>
+          </div>
+          <div class="hint">预置名单按 Elsevier 2017 高被引排名升序（引用最高者优先）。</div>
+        </div>
+        <div id="panel-paste" style="display:none">
+          <label>粘贴姓名（每行一个；或 CSV 含 name / authfull 列）</label>
+          <textarea id="paste" placeholder="Zhang, Wei&#10;Li, Hong&#10;Wang, Xiaoming"></textarea>
+          <div style="margin-top:10px"><button class="btn btn-primary" id="btn-load-paste">加载名单</button></div>
+        </div>
+        <div class="msg" id="list-status"></div>
+      </div>
+
+      <div class="card" id="step-run">
+        <div class="card-head"><div class="step-no">3</div><h2>抓取控制</h2></div>
+        <div class="row">
+          <div><label>每人候选数（WP1）</label><input type="number" id="topn" value="5" min="1" max="20"></div>
+          <div><label>每人最多作品数（留空=全部）</label><input type="number" id="maxworks" placeholder="留空抓全部" min="1"></div>
+          <div>
+            <button class="btn btn-primary" id="btn-run">▶ 开始抓取</button>
+            <button class="btn btn-danger" id="btn-stop" style="margin-left:8px">■ 停止</button>
+          </div>
+        </div>
+        <div class="progress-wrap" style="margin-top:22px">
+          <div class="ring">
+            <svg width="130" height="130" viewBox="0 0 130 130">
+              <defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--accent)"/><stop offset="100%" stop-color="var(--accent-2)"/>
+              </linearGradient></defs>
+              <circle class="ring-bg" cx="65" cy="65" r="56" fill="none" stroke-width="12"/>
+              <circle class="ring-fg" id="ring-fg" cx="65" cy="65" r="56" fill="none"
+                stroke-width="12" stroke-linecap="round" stroke-dasharray="351.86" stroke-dashoffset="351.86"/>
+            </svg>
+            <div class="ring-label"><div><div class="pct" id="ring-pct">0%</div><div class="cap">进度</div></div></div>
+          </div>
+          <div class="stats">
+            <div class="stat accent"><div class="n" id="s-done">0</div><div class="l">已完成</div></div>
+            <div class="stat"><div class="n" id="s-total">0</div><div class="l">总数</div></div>
+            <div class="stat warn"><div class="n" id="s-req">0</div><div class="l">请求数</div></div>
+            <div class="stat ok"><div class="n" id="s-works">0</div><div class="l">作品数</div></div>
+          </div>
+        </div>
+        <div style="margin-top:16px"><div class="msg" id="s-msg"></div></div>
+        <div class="hint" style="margin-top:4px">实时日志</div>
+        <div class="log-box" id="log-box"></div>
+      </div>
+
+      <div class="card" id="step-export">
+        <div class="card-head"><div class="step-no">4</div><h2>结果与导出</h2></div>
+        <div class="export-grid">
+          <div class="export-item" data-kind="works"><div class="fi">📄</div><div><div class="fn">作品 works.jsonl</div><div class="fs">每位学者的作品明细</div></div></div>
+          <div class="export-item" data-kind="candidates"><div class="fi">🎯</div><div><div class="fn">候选 candidates.jsonl</div><div class="fs">WP1 检索候选学者</div></div></div>
+          <div class="export-item" data-kind="checkpoint"><div class="fi">💾</div><div><div class="fn">断点 checkpoint.json</div><div class="fs">续跑进度快照</div></div></div>
+        </div>
+        <div class="hint">数据存于本浏览器（localStorage），点击导出下载。抓取量大时建议分批导出。</div>
+        <table id="result-table" style="margin-top:18px; display:none">
+          <thead><tr><th>序号</th><th>姓名</th><th>作品数</th><th>候选数</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="empty" id="result-empty">抓取完成后，这里会列出每位学者的抓取结果。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ 全局状态 ============ */
+const API_BASE = "https://api.openalex.org";
+const RATE_PER_SEC = 8;           // 限速 8 req/s
+const MAX_RETRIES = 5;            // 重试次数
+const BACKOFF_BASE = 1.5;         // 指数退避底数
+const PER_PAGE = 100;             // 单页条数
+const MAX_PAGES = 500;            // 单作者翻页安全阀
+const AUTHOR_SELECT = "id,display_name,orcid,works_count,cited_by_count,last_known_institutions,ids";
+const WORK_SELECT = "id,doi,publication_year,type,cited_by_count,authorships,primary_location,title";
+
+const $ = id => document.getElementById(id);
+const STATUS_TEXT = { idle:"空闲", running:"抓取中", paused:"已暂停", done:"完成", error:"出错" };
+const R = 56, CIRC = 2 * Math.PI * R;
+
+let theme = localStorage.getItem("oa_theme") || "light";
+let apiKey = localStorage.getItem("oa_key") || "";
+let roster = [];                 // [{src_id, authfull}]
+let runner = { running:false, stop:false };
+
+/* 抓取结果（内存 + localStorage 持久化，支持断点续跑） */
+let works = [];                  // [{src_id, oa_author_id, work}]
+let candidates = [];             // [{src_id, candidates}]
+let checkpoint = {};             // {src_id: {wp1,w2,works_count}}
+
+/* ============ 主题 ============ */
+function applyTheme(t){ document.documentElement.setAttribute("data-theme", t);
+  localStorage.setItem("oa_theme", t); $("btn-theme").textContent = t==="dark"?"☀️":"🌓"; }
+applyTheme(theme);
+$("btn-theme").onclick = ()=>applyTheme(theme==="dark"?"light":"dark");
+
+/* ============ 工具 ============ */
+function toast(msg, type=""){ const t=$("toast"); t.textContent=msg; t.className="toast show "+type;
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"), 2600); }
+function addLog(type, text){ const box=$("log-box");
+  const t=new Date().toLocaleTimeString("zh-CN",{hour12:false});
+  const d=document.createElement("div");
+  d.innerHTML=`<span class="t">[${t}]</span> <span class="${type==='info'?'':type}">${text}</span>`;
+  box.appendChild(d); box.scrollTop=box.scrollHeight; }
+const sleep = ms => new Promise(r=>setTimeout(r, ms));
+
+/* ============ 侧边栏 ============ */
+document.querySelectorAll(".nav-item").forEach(el=>{
+  el.onclick=()=>document.getElementById(el.dataset.scroll).scrollIntoView({behavior:"smooth",block:"start"});
+});
+
+/* ============ tab ============ */
+$("tab-preset").onclick=()=>switchTab("preset");
+$("tab-paste").onclick=()=>switchTab("paste");
+function switchTab(t){
+  $("tab-preset").classList.toggle("active", t==="preset");
+  $("tab-paste").classList.toggle("active", t==="paste");
+  $("panel-preset").style.display = t==="preset"?"block":"none";
+  $("panel-paste").style.display = t==="paste"?"block":"none";
+}
+
+/* ============ key ============ */
+if(apiKey){ $("key").value = apiKey; $("key-status").textContent = "  ✅ 已载入本机保存的 key"; }
+$("btn-key").onclick = ()=>{
+  const k = $("key").value.trim();
+  if(!k){ toast("请先粘贴 API key","err"); return; }
+  apiKey = k; localStorage.setItem("oa_key", k);
+  $("key-status").textContent = "  ✅ Key 已保存（仅本浏览器）";
+  $("key-warn").classList.add("show");
+  toast("Key 已保存","ok");
+};
+
+/* ============ 名单解析 ============ */
+function parseNameList(text){
+  const sample = text.replace(/^\ufeff/,"");
+  const lines = sample.split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length) return [];
+  const first = lines[0].trim().toLowerCase();
+  const headerHit = /name|authfull|姓名|fullname/.test(first);
+  let rows = [];
+  if(headerHit){
+    // 简易 CSV 解析（兼容引号内逗号）
+    const all = parseCSV(sample);
+    const header = all[0].map(h=>h.trim().toLowerCase());
+    const col = header.findIndex(h=>["name","authfull","姓名","fullname"].includes(h));
+    const c = col>=0?col:0;
+    for(let i=1;i<all.length;i++){ if(all[i][c] && all[i][c].trim()) rows.push(all[i][c].trim()); }
+  } else {
+    rows = lines;
+  }
+  return rows.map((name,i)=>({src_id:i+1, authfull:name}));
+}
+function parseCSV(text){
+  const rows=[]; let cur="", row=[], inQ=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(inQ){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else inQ=false; } else cur+=ch; }
+    else { if(ch==='"') inQ=true; else if(ch===','){ row.push(cur); cur=""; }
+      else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=""; }
+      else if(ch!=='\r') cur+=ch; }
+  }
+  if(cur!==""||row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+
+let presetNames = null;
+async function loadPresetCSV(){
+  if(presetNames) return presetNames;
+  addLog("info","正在加载预置名单（约 2.7MB）…");
+  const resp = await fetch("roster.csv");
+  const text = await resp.text();
+  const all = parseCSV(text);
+  presetNames = all.slice(1).map((r,i)=>({src_id:i+1, authfull:r[1]})).filter(r=>r.authfull);
+  addLog("ok",`预置名单已加载：${presetNames.length} 人`);
+  return presetNames;
+}
+
+$("btn-load-preset").onclick = async ()=>{
+  const btn=$("btn-load-preset");
+  const limit=parseInt($("limit").value||"10"), offset=parseInt($("offset").value||"1")-1;
+  btn.disabled=true; const old=btn.textContent; btn.textContent="加载中…";
+  const el=$("list-status"); el.className="msg"; el.textContent="⏳ 正在读取名单…";
+  try{
+    const names = await loadPresetCSV();
+    roster = names.slice(offset, offset+limit);
+    setListStatus({ok:true, count:roster.length, preset_total:names.length});
+  }catch(e){
+    setListStatus({ok:false, error:"名单加载失败："+e.message});
+  }finally{ btn.disabled=false; btn.textContent=old; }
+};
+$("btn-load-paste").onclick = ()=>{
+  roster = parseNameList($("paste").value);
+  setListStatus(roster.length ? {ok:true, count:roster.length} : {ok:false, error:"名单为空"});
+};
+function setListStatus(r){
+  const el=$("list-status");
+  if(r.ok){ el.className="msg ok";
+    let t=`✅ 已加载 ${r.count} 人`;
+    if(r.preset_total) t+=`（名单库共 ${r.preset_total} 人）`;
+    el.textContent=t; stepDone(2); }
+  else { el.className="msg err"; el.textContent="❌ "+(r.error||"加载失败"); }
+}
+
+/* ============ OpenAlex 请求（浏览器直连，带限速+429处理） ============ */
+let lastRequest = 0;
+let requestCount = 0;
+async function throttle(){
+  const now = performance.now();
+  const wait = (1000/RATE_PER_SEC) - (now - lastRequest);
+  if(wait>0) await sleep(wait);
+  lastRequest = performance.now();
+}
+async function oaGet(path, params){
+  const url = API_BASE + "/" + path + "?" + new URLSearchParams(params).toString();
+  const headers = { "Accept":"application/json" };
+  if(apiKey) headers["Authorization"] = "Bearer " + apiKey;
+  for(let attempt=0; attempt<=MAX_RETRIES; attempt++){
+    await throttle();
+    let resp;
+    try { resp = await fetch(url, { headers }); }
+    catch(e){ if(attempt<MAX_RETRIES){ await sleep(BACKOFF_BASE**(attempt+1)*1000); continue; } return null; }
+    requestCount++;
+    if(resp.status === 200){ return await resp.json(); }
+    // 429 / 403 / 5xx
+    if(resp.status===429 || resp.status===403 || resp.status>=500){
+      let code=null;
+      try { const j=await resp.json(); code=j.code||j.reason||j.error; } catch(e){}
+      if(resp.status===429 && code==="daily_budget"){
+        throw new Error("DAILY_BUDGET_EXHAUSTED");
+      }
+      if(resp.status===403 && code==="key_not_activated"){
+        addLog("err","API key 未激活，请到邮箱点激活链接");
+        return null;
+      }
+      if(attempt<MAX_RETRIES){
+        const ra = resp.headers.get("Retry-After");
+        const wait = ra ? parseFloat(ra)*1000 : BACKOFF_BASE**(attempt+1)*1000;
+        addLog("warn",`${resp.status} 重试 (${Math.round(wait/1000)}s)…`);
+        await sleep(wait); continue;
+      }
+      if(resp.status===429) throw new Error("RATE_LIMIT_EXCEEDED");
+      return null;
+    }
+    return null; // 其他 4xx（如 404）
+  }
+  return null;
+}
+
+/* ============ WP1 / WP2 抓取逻辑 ============ */
+async function wp1Search(src, topN){
+  const data = await oaGet("authors", { search:src.authfull, "per-page":topN, select:AUTHOR_SELECT });
+  if(data===null) throw new Error(`src_id=${src.src_id} 作者检索请求失败`);
+  if(!data.results) return [];
+  return data.results.map((a,i)=>({ rank:i+1, author_id:a.id, display_name:a.display_name,
+    orcid:a.orcid, works_count:a.works_count, cited_by_count:a.cited_by_count,
+    last_known_institutions:a.last_known_institutions, ids:a.ids }));
+}
+async function wp2FetchWorks(src, authorId, maxWorks){
+  const bareId = String(authorId).replace(/\/$/,"").split("/").pop();
+  const out=[]; let cursor="*", page=0;
+  const perPage = maxWorks ? Math.min(PER_PAGE, maxWorks) : PER_PAGE;
+  while(true){
+    if(runner.stop) throw new Error("MANUAL_STOP");
+    const data = await oaGet("works", { filter:`authorships.author.id:${bareId}`,
+      "per-page":perPage, cursor, select:WORK_SELECT });
+    if(data===null) throw new Error(`src_id=${src.src_id} 第${page+1}页作品请求失败`);
+    const results = data.results||[];
+    for(const w of results) out.push({ src_id:src.src_id, oa_author_id:authorId, work:w });
+    page++;
+    const nxt = data.meta && data.meta.next_cursor;
+    if(!results.length || !nxt) break;
+    if(maxWorks && out.length>=maxWorks) break;
+    cursor=nxt;
+    if(page>=MAX_PAGES){ addLog("warn",`src_id=${src.src_id} 达${MAX_PAGES}页上限，截断`); break; }
+  }
+  return out;
+}
+
+/* ============ 持久化（localStorage） ============ */
+function saveState(){
+  try{
+    localStorage.setItem("oa_works", JSON.stringify(works));
+    localStorage.setItem("oa_candidates", JSON.stringify(candidates));
+    localStorage.setItem("oa_checkpoint", JSON.stringify(checkpoint));
+  }catch(e){ /* localStorage 满时忽略 */ }
+}
+function loadState(){
+  try{
+    works = JSON.parse(localStorage.getItem("oa_works")||"[]");
+    candidates = JSON.parse(localStorage.getItem("oa_candidates")||"[]");
+    checkpoint = JSON.parse(localStorage.getItem("oa_checkpoint")||"{}");
+  }catch(e){ works=[]; candidates=[]; checkpoint={}; }
+}
+loadState();
+
+/* ============ 抓取主循环 ============ */
+async function runFetch(topN, maxWorks){
+  runner.running = true; runner.stop = false;
+  $("btn-run").disabled = true; $("btn-stop").disabled = false;
+  const total = roster.length;
+  let done = 0, halted = "";
+
+  for(const src of roster){
+    if(runner.stop){ halted="已手动停止"; break; }
+    const sid = String(src.src_id);
+    const cp = checkpoint[sid] = checkpoint[sid] || { wp1:false, wp2:false, works_count:0 };
+    if(cp.wp2){ done++; updateProgress(done,total); continue; }
+
+    addLog("info","正在抓取："+src.authfull);
+    $("top-status").textContent = "抓取中"; $("top-pill").className="pill running";
+    setCurrent(src.authfull);
+
+    // WP1
+    if(!cp.wp1){
+      try{
+        const cands = await wp1Search(src, topN);
+        candidates.push({ src_id:src.src_id, candidates:cands });
+        cp.wp1 = true; cp.candidates = cands.length;
+        saveState();
+      }catch(e){
+        if(e.message==="DAILY_BUDGET_EXHAUSTED"){ halted="当日额度已耗尽，请明天续跑"; }
+        else if(e.message==="RATE_LIMIT_EXCEEDED"){ halted="触发速率限制，稍后重试"; }
+        else { halted = e.message; }
+        break;
+      }
+    }
+    // WP2
+    if(cp.wp1 && !cp.wp2){
+      const cands = candidates.filter(c=>c.src_id===src.src_id);
+      const top = cands.length && cands[0].candidates.length ? cands[0].candidates[0] : {};
+      const aid = top.author_id;
+      if(!aid){
+        cp.wp2 = true; cp.works_count = 0; saveState();
+      } else {
+        try{
+          const wks = await wp2FetchWorks(src, aid, maxWorks);
+          works.push(...wks);
+          cp.wp2 = true; cp.works_count = wks.length; cp.oa_author_id = aid;
+          saveState();
+        }catch(e){
+          if(e.message==="DAILY_BUDGET_EXHAUSTED"){ halted="当日额度已耗尽，请明天续跑"; }
+          else if(e.message==="RATE_LIMIT_EXCEEDED"){ halted="触发速率限制，稍后重试"; }
+          else if(e.message==="MANUAL_STOP"){ halted="已手动停止"; }
+          else { halted = e.message; }
+          break;
+        }
+      }
+    }
+    done++;
+    updateProgress(done,total);
+    renderResults();
+  }
+
+  runner.running = false;
+  $("btn-run").disabled = false; $("btn-stop").disabled = true;
+  if(halted){
+    $("top-status").textContent="已暂停"; $("top-pill").className="pill paused";
+    $("s-msg").textContent="已暂停："+halted; addLog("warn","已暂停："+halted);
+  } else {
+    $("top-status").textContent="完成"; $("top-pill").className="pill done";
+    $("s-msg").textContent=`完成 ${done}/${total} 名学者`; addLog("ok",`完成 ${done}/${total} 名学者`);
+    stepDone(3); stepDone(4);
+  }
+}
+
+function setCurrent(name){ /* 当前学者名显示在顶部日志中，无需单独状态 */ }
+function updateProgress(done, total){
+  $("s-done").textContent = done; $("s-total").textContent = total;
+  $("s-req").textContent = requestCount; $("s-works").textContent = works.length;
+  const pct = total ? Math.round(100*done/total) : 0;
+  $("ring-pct").textContent = pct+"%";
+  $("ring-fg").style.strokeDashoffset = CIRC*(1-pct/100);
+}
+function renderResults(){
+  const tb=$("result-table"), empty=$("result-empty");
+  if(!roster.length){ tb.style.display="none"; empty.style.display="block"; return; }
+  tb.style.display="table"; empty.style.display="none";
+  const tbody=tb.querySelector("tbody");
+  tbody.innerHTML = roster.map(s=>{
+    const cp = checkpoint[String(s.src_id)] || {};
+    return `<tr><td>${s.src_id}</td><td>${s.authfull}</td><td>${cp.works_count||0}</td><td>${cp.candidates||0}</td></tr>`;
+  }).join("");
+}
+
+$("btn-run").onclick = async ()=>{
+  if(!apiKey){ toast("请先设置 API key","err"); return; }
+  if(!roster.length){ toast("请先加载名单","err"); return; }
+  const topN = parseInt($("topn").value||"5");
+  const mw = ($("maxworks").value||"").trim();
+  const maxWorks = mw ? parseInt(mw) : null;
+  addLog("info",`启动抓取：${roster.length} 人`);
+  runFetch(topN, maxWorks);
+};
+$("btn-stop").onclick = ()=>{ runner.stop = true; addLog("warn","已发送停止指令…"); };
+
+/* ============ 导出 ============ */
+function download(filename, content){
+  const blob = new Blob([content], {type:"application/octet-stream"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+document.querySelectorAll(".export-item").forEach(el=>{
+  el.onclick = ()=>{
+    const kind = el.dataset.kind;
+    if(kind==="works"){
+      if(!works.length){ toast("暂无作品数据","err"); return; }
+      download("works.jsonl", works.map(w=>JSON.stringify(w)).join("\n"));
+    } else if(kind==="candidates"){
+      if(!candidates.length){ toast("暂无候选数据","err"); return; }
+      download("candidates.jsonl", candidates.map(c=>JSON.stringify(c)).join("\n"));
+    } else if(kind==="checkpoint"){
+      download("checkpoint.json", JSON.stringify(checkpoint, null, 2));
+    }
+    toast("已开始下载","ok");
+  };
+});
+
+/* ============ 步骤条 ============ */
+function stepDone(n){ const s=$("step-"+n); s.classList.add("done"); s.classList.remove("active"); }
+function stepActive(n){ for(let i=1;i<=4;i++){ const s=$("step-"+i);
+  if(i<n){ s.classList.add("done"); s.classList.remove("active"); }
+  else if(i===n){ s.classList.add("active"); s.classList.remove("done"); } } }
+
+/* 初始化 */
+$("btn-stop").disabled = true;
+updateProgress(0, roster.length);
+renderResults();
+</script>
+</body>
+</html>
