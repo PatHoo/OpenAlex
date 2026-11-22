@@ -100,10 +100,12 @@ class DidSqlTest(unittest.TestCase):
     def setUp(self) -> None:
         self.sql = (PIPELINE / "wp14_did.py").read_text(encoding="utf-8")
 
-    def test_treated_is_high_confidence_only(self) -> None:
-        self.assertIn("cm.confidence='high'", self.sql)
-        self.assertIn("coalesce(cm.confidence='high', false) AS treated", self.sql)
-        self.assertIn("WHERE cm.scholar_id IS NULL OR cm.confidence='high'", self.sql)
+    def test_treated_is_external_evidence_eligible_only(self) -> None:
+        # v2：treated 从算法 high 改为 WP15 外部证据定案（5 人）
+        self.assertIn("cohort_external_review", self.sql)
+        self.assertIn("coalesce(cr.eligible_treated, false) AS treated", self.sql)
+        self.assertIn("WHERE cm.scholar_id IS NULL OR coalesce(cr.eligible_treated, false)", self.sql)
+        self.assertIn("EXTERNAL_RULE_VERSION", self.sql)
 
     def test_post_and_window_are_2018_and_2014_2021(self) -> None:
         self.assertIn("year >= 2018", self.sql)

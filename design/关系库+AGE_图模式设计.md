@@ -45,7 +45,7 @@ OpenAlex / ROR / ORCID / Crossref
 
 ## 2. 关系库表结构（PostgreSQL 16）
 
-共 25 张表，分六组（字典、身份、作品、面板、事件证据、日志与分析）。完整可建表脚本见 `schema.sql`；WP13/WP14 新增表的增量迁移见 `cohort_did_seed.sql`。
+`schema.sql` 共 25 张表，分六组（字典、身份、作品、面板、事件证据、日志与分析）；WP15/WP16 另有 4 张增量表（外部出生证据、外部定案、稳健 DID 估计、稳健逐年效应），合计 29 张分析表。完整可建表脚本见 `schema.sql`；增量迁移依次见 `cohort_did_seed.sql`、`external_evidence_seed.sql`、`did_robust_seed.sql`。
 
 ### 2.1 身份与名单（source / identity）
 
@@ -103,6 +103,10 @@ OpenAlex / ROR / ORCID / Crossref
 | `did_panel` | `(scholar_id, year)` | DID 面板：`treated`, `post`(2018+), `outcome_moves`/`outcome_intl_moves`/`outcome_cn_link`/`outcome_log_works`, `covariates`(JSONB) |
 | `did_estimate` | `(rule_version, cohort_rule_version, specification, outcome)` | 2x2 DID 系数、标准误、样本量、平行趋势检查与口径备注 |
 | `did_annual_effect` | `(rule_version, cohort_rule_version, outcome, year)` | 事件研究逐年效应（baseline=2017）与年度样本量 |
+| `external_birth_evidence` | `(scholar_id, rule_version, source_url, claim)` | WP15 外部出生证据：`source_type`∈{official,encyclopedia,news}、`source_url`+`quote_text` 原文留痕、`claim`∈{birth_place_cn,education_cn,nationality_cn,career_cn_early,no_cn_in_public_cv,identity_mismatch}、身份核对与权重 |
+| `cohort_external_review` | `scholar_id` | WP15 定案：`verdict`∈{verified_cn_birth,probable_cn_birth,not_supported,identity_unresolved}、`eligible_treated` 仅前两档为真；公开履历不是官方出生证明，`birth_country` 仍可为 NULL |
+| `did_robust_estimate` | `(rule_version, cohort_rule_version, specification, outcome)` | WP16 学者层聚类 CR1 SE：系数/SE/t/p/95%CI、组与簇样本量、R²、平行趋势联合 F 与退化标记；与 `did_estimate` 的独立组-期近似并存对照 |
+| `did_robust_annual_effect` | `(rule_version, cohort_rule_version, outcome, year)` | WP16 逐年效应（lead/baseline/lag）的聚类 SE、t/p 与 CI；零方差单元写 NULL 不伪造 |
 
 ---
 
@@ -403,7 +407,8 @@ CREATE (s)-[:AFFILIATED {
 4. **边必须有标签**：创建边时不能省略标签；顶点可多标签，边只能一个标签。
 5. **数值类型**：agtype 中整数与浮点区分，`share=0.6` 要写成 `0.6` 而非 `60`；百分比统一用 0–1 小数存储。
 6. **A 轨不可变**：触发器是最后防线，真正保障来自"B 只 INSERT 不 UPDATE"的应用约定与代码审查。本仓库目前没有应用层代码，因此该约束实际上只由数据库触发器承担；全量实施时必须补上应用层校验。
-7. **出生国不确定**：`birth_country_hint` 不是可靠字段。WP13 只生成"中国背景候选"：`high` 可作为 DID 处理组代理，但 `birth_country` 除外部证据外保持 NULL；正式声称"中国出生"必须走 `cohort_member.reviewed_by`/`reviewed_at` 人工复核，否则 DID 的处理组定义会被质疑。
+7. **出生国不确定**：`birth_country_hint` 不是可靠字段。WP13 只生成"中国背景候选"；WP15 对候选逐人核对公开来源并留 URL+原文，按四档 verdict 定案，只有 `eligible_treated`（verified/probable）才进 DID 处理组，算法假阳性与身份未锚定者剔除。`birth_country` 除官方出生证明外保持 NULL——公开履历不是出生证明；正式声称"中国出生"仍须人工复核 `cohort_member.reviewed_by`/`reviewed_at`。
+8. **DID 推断层级**：`did_estimate` 的独立组-期 SE 只作描述；正式推断用 WP16 的学者层聚类 CR1 SE（同一学者跨年相关），并对 2014–2016 三个 lead 做联合 Wald F（baseline=2017）。处理组仅 5 人时聚类小簇 SE 偏乐观，二值结果可能出现零方差 lead 使协方差退化——此时降级标注，不伪造 F。1000 人子集全部结果只证流程，不出政策结论。
 
 ---
 

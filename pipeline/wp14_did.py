@@ -2,16 +2,17 @@
 """WP14：2017-2018 中美科技战的 DID 面板与估计（1000 人试跑版）。
 
 设计边界：
-- treated = 2017 年美国非并列主机构 且 WP13 队列 high 置信度（中国背景代理，非出生国事实）；
-  medium/low 既不进 treated 也不进 control，避免污染对照。
-- control = 同期在美、且未进入候选队列的学者。
+- treated = 2017 年美国非并列主机构 且 WP15 外部证据定案 eligible_treated
+  （verified_cn_birth / probable_cn_birth；算法 high 但外部不支持或身份未定者剔除）。
+- control = 同期在美、且未进入候选队列的学者；medium/low 与外部剔除者都不进任一组。
 - post = year >= 2018；估计窗 2014-2021，2x2 前=2014-2017、后=2018-2021。
 - 结果变量：moves_any(C1+C2)、moves_intl(C2)、cn_link(当年中国主/次级署名)、log_works。
   事件只取 A_1000_v1 的 Confirmed/Probable 且未抑制；事件年仍是 signature_proxy。
-- 标准误用四个组-期单元样本方差的独立近似，只作描述性 DID；面板重复观测的聚类稳健 SE
-  需把导出的 CSV 交给 statsmodels/linearmodels，不在本脚本伪造推断。
+- 标准误用四个组-期单元样本方差的独立近似，只作描述性 DID；学者层聚类稳健 SE 与
+  平行趋势联合 F 检验由 WP16（wp16_did_robust.py）在导出的面板上计算，不在此伪造推断。
 - 平行趋势仅做 2014-2016 逐年 lead 的 |t|<1.96 检查（非联合 F 检验），baseline=2017。
 
+版本：v1=算法 high 当 treated（7 人，历史留档）；v2=外部证据定案（5 人，当前口径）。
 运行：python wp14_did.py [--dry-run]
 """
 from __future__ import annotations
@@ -22,31 +23,36 @@ import time
 from cohort_rules import (
     BASELINE_YEAR,
     COHORT_RULE_VERSION,
-    DID_RULE_VERSION,
     POST_START_YEAR,
     WORK_RULE_VERSION,
 )
 from config import batch_dir
 from dbutil import run_psql
+from external_evidence_rules import EXTERNAL_RULE_VERSION
 
-RV = DID_RULE_VERSION
+# v2：treated 改为 WP15 外部证据定案（5 人），v1 结果保留在库里供对照。
+RV = "DID_2018_A1000_v2"
 CRV = COHORT_RULE_VERSION
 WRV = WORK_RULE_VERSION
+ERV = EXTERNAL_RULE_VERSION
 
 DRY_RUN_SQL = f"""
-SELECT count(*) FILTER (WHERE cm.confidence='high') AS treated,
+SELECT count(*) FILTER (WHERE cr.eligible_treated) AS treated_external,
        count(*) FILTER (WHERE cm.scholar_id IS NULL) AS control,
-       count(*) FILTER (WHERE cm.confidence IN ('medium','low')) AS excluded_review
+       count(*) FILTER (WHERE cm.confidence IS NOT NULL AND NOT coalesce(cr.eligible_treated,false)) AS excluded_review
 FROM (
   SELECT scholar_id FROM annual_panel
   WHERE year=2017 AND note LIKE 'wp9:%' AND primary_country='US' AND NOT primary_is_tie
 ) b
-LEFT JOIN cohort_member cm USING(scholar_id);
+LEFT JOIN cohort_member cm USING(scholar_id)
+LEFT JOIN cohort_external_review cr
+  ON cr.scholar_id=b.scholar_id AND cr.rule_version='{ERV}';
 
 SELECT ap.year, count(*) AS rows,
-       count(*) FILTER (WHERE cm.confidence='high') AS treated_rows
+       count(*) FILTER (WHERE cr.eligible_treated) AS treated_rows
 FROM annual_panel ap
-LEFT JOIN cohort_member cm USING(scholar_id)
+LEFT JOIN cohort_external_review cr
+  ON cr.scholar_id=ap.scholar_id AND cr.rule_version='{ERV}'
 WHERE ap.year BETWEEN 2014 AND 2021 AND ap.note LIKE 'wp9:%' AND ap.primary_country='US'
 GROUP BY ap.year ORDER BY ap.year;
 """
@@ -62,10 +68,13 @@ WITH base AS (
 ),
 grp AS (
     SELECT b.scholar_id,
-           coalesce(cm.confidence='high', false) AS treated,
+           coalesce(cr.eligible_treated, false) AS treated,
            cm.confidence AS cohort_confidence
-    FROM base b LEFT JOIN cohort_member cm USING(scholar_id)
-    WHERE cm.scholar_id IS NULL OR cm.confidence='high'
+    FROM base b
+    LEFT JOIN cohort_member cm USING(scholar_id)
+    LEFT JOIN cohort_external_review cr
+      ON cr.scholar_id=b.scholar_id AND cr.rule_version='{ERV}'
+    WHERE cm.scholar_id IS NULL OR coalesce(cr.eligible_treated, false)
 ),
 ev AS (
     SELECT scholar_id, paper_year AS year,
@@ -202,7 +211,7 @@ INSERT INTO did_estimate
 SELECT '{RV}', '{CRV}', 'did_2x2', d.outcome,
        round(d.coef::numeric,6), round(d.se::numeric,6), round((d.coef/d.se)::numeric,6),
        c.n_treated, c.n_control, c.n_obs, p.pretrend_coef, p.passed,
-       'pre=2014-2017 post=2018-2021; treated=high-confidence Chinese-background proxy; independent-cell SE, descriptive only'
+       'pre=2014-2017 post=2018-2021; treated=external-evidence eligible (verified/probable CN birth), v1 algorithm-high kept for comparison; independent-cell SE, descriptive only'
 FROM did d
 JOIN pretrend p USING(outcome)
 CROSS JOIN counts c;

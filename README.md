@@ -2,7 +2,7 @@
 
 **全球高被引学者的机构隶属与空间流动轨迹重建** — 数据基建 · 政策研究 · AI 科研工具平台
 
-> **项目状态**：第一期方法可行性验证（Proof of Concept）已完成；1,000 人试跑已全量抓取并完成落库，队列筛选与 DID 流程也已跑通（见 [项目状态](#项目状态)）。全量 10.5 万学者跑批与 Agent 平台尚未实施。
+> **项目状态**：第一期方法可行性验证（Proof of Concept）已完成；1,000 人试跑已全量抓取并完成落库，队列筛选、外部出生国证据核查与 DID（含聚类稳健 SE）均已跑通（见 [项目状态](#项目状态)）。全量 10.5 万学者跑批与 Agent 平台尚未实施。
 
 ## 目录
 
@@ -62,7 +62,7 @@ OpenAlex/
 │   ├── verify_poc.sql                    # 导入后可执行的一致性/完整性核对
 │   ├── 三人小样原型_部署文档.md
 │   └── 三人小样原型_部署文档_Docker_WSL版.md
-├── pipeline/                         # 全量跑批、落库与分析层（WP0–WP14）
+├── pipeline/                         # 全量跑批、落库与分析层（WP0–WP16）
 │   ├── README.md                         # key/额度、环境、工作包总览、运行顺序、实机结果
 │   ├── config.py                         # 环境变量/路径/限速
 │   ├── oa_client.py                      # 认证、限速、429 额度保护、请求留痕
@@ -80,7 +80,9 @@ OpenAlex/
 │   ├── wp10_event_engine.py              # WP10：C1–C5 事件 + 三指标证据
 │   ├── wp11_classify.py                  # WP11：D/I/S → M1–M8 分类 + 三类次数视图
 │   ├── wp13_cohort_screen.py             # WP13：中国背景候选队列 + 逐信号证据
-│   ├── wp14_did.py                       # WP14：2018 DID 面板、估计与 CSV 导出
+│   ├── wp14_did.py                       # WP14：2018 DID 面板、估计与 CSV 导出（v2 外部证据口径）
+│   ├── wp15_external_evidence.py          # WP15：外部出生国证据（公开来源逐条留痕）+ 定案
+│   ├── wp16_did_robust.py                 # WP16：学者层聚类稳健 SE + 平行趋势联合 F 检验
 │   ├── dbutil.py                         # psql 封装（检查退出码）
 │   ├── tests/test_pipeline_safety.py     # P0 静默丢数回归测试（7 项）
 │   ├── tests/test_wp11_classification.py # 8.5 分类口径回归测试（6 项）
@@ -106,7 +108,7 @@ OpenAlex/
 
 **关系库为唯一真相源，AGE 图是可丢弃的派生投影**：
 
-- **PostgreSQL + PostGIS**：25 张表覆盖身份、作品署名、机构地理、年度面板、事件证据分类、队列/DID 与请求日志。同一 schema 已导入两处——AGE 图容器（PG16）与原生落库（PG17:5432，承载 1,000 人试跑）。`rule_version` 进入事件/分类表唯一约束，A 轨以触发器锁定不可变。
+- **PostgreSQL + PostGIS**：`schema.sql` 25 张表 + WP15/WP16 增量 4 张（外部出生证据、定案、稳健 DID 估计与逐年效应）覆盖身份、作品署名、机构地理、年度面板、事件证据分类、队列/DID 与请求日志。同一 schema 已导入两处——AGE 图容器（PG16）与原生落库（PG17:5432，承载 1,000 人试跑）。`rule_version` 进入事件/分类表唯一约束，A 轨以触发器锁定不可变。
 - **Apache AGE**：目标模式为 7 类节点 / 14 种边；三人小样投影实际实现 5 类节点 / 9 种边（暂不含 `Work`/`Alias` 节点及 `AUTHORED`/`SIGNED_AT`/`RENAMED_TO`/`IN_COHORT` 边）。时间作为 `AFFILIATED` 边属性、规则版本作版本属性。图随时可重建，不影响原始数据。
 - **分工**：统计判定（众数、占比、C2 抑制、阈值敏感性）全在 SQL；迁移轨迹、改名链、合作网络等路径查询走图；DID 回归导出到 pandas/statsmodels。
 
@@ -157,8 +159,8 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
 - 验证样本为 Becke、Perdew、Newman 三人，占 10.5 万目标学者约 **0.003%**，属 Proof of Concept 而非全量成果。
 - Newman 证据完整、判为 M8；Becke / Perdew 因任职年份缺失与并列年，`mobility_class` 正式字段留空。
 - 6 条有效迁移中，2 条用署名年代理、无真实任职年份；70% 阈值下部分事件从 Probable 降为 Possible。
-- 「中国背景、在美」候选队列与 DID 流程已在 1,000 人子集跑通，但不是"已证实中国出生"：7 名 high 置信度代理 treated、428 名对照；出生国仍无外部证据。文献模块、论文写作、本地化部署尚未实施。
-- 全量跑批尚未开始（目标 105,027 人）；但 **1,000 人试跑已全部完成落库并跑通分析层**（详见 `pipeline/README.md`）：抓取 922,627 篇作品（请求 10,760 次），去重入库 865,111 篇 work；消歧定案 scholar=896 / identity_map=1,700；署名 846,012 条；机构 31,388（全带 ROR）+ 别名 181.6 万；已回填 646,069 条署名的 `matched_institution_id`。分析层已建 42,046 个学者年面板、13,355 个 C1–C5 事件，并按原始方案 8.5 完成 D/I/S→M1–M8 分类（896 人，631 可正式定类 / 265 标不确定）。中国背景候选队列（7 high / 104 low）与 2018 DID 面板（3,375 组-年、7 treated / 428 control）也已落库；**出生国仍无外部证据，DID 只作流程验证**。数据库约 2.1 GB。
+- 「中国背景、在美」候选队列 + 外部出生国证据 + DID 已在 1,000 人子集跑通。WP13 算法 high 7 人经 WP15 逐人核对公开来源后：5 人证实/高度可能中国出生（treated）、1 人算法假阳性（Joseph Wang，Technion 博士、无中国段）、1 人身份无法锚定（Jie Liu，B 级消歧）；428 名对照。证据只来自机构官网/CV/百科并逐条留 URL 与原文，仍建议人工复核，不能当官方出生证明。文献模块、论文写作、本地化部署尚未实施。
+- 全量跑批尚未开始（目标 105,027 人）；但 **1,000 人试跑已全部完成落库并跑通分析层**（详见 `pipeline/README.md`）：抓取 922,627 篇作品（请求 10,760 次），去重入库 865,111 篇 work；消歧定案 scholar=896 / identity_map=1,700；署名 846,012 条；机构 31,388（全带 ROR）+ 别名 181.6 万；已回填 646,069 条署名的 `matched_institution_id`。分析层已建 42,046 个学者年面板、13,355 个 C1–C5 事件，并按原始方案 8.5 完成 D/I/S→M1–M8 分类（896 人，631 可正式定类 / 265 标不确定）。中国背景候选队列（7 high / 104 low）、外部出生国证据定案（5 eligible / 2 剔除）、2018 DID 面板（3,359 组-年、5 treated / 428 control）与聚类稳健估计均已落库；**treated 仅 5 人，统计功效极低，DID 只作流程验证，不出政策结论**。数据库约 2.1 GB。
 - 消歧按严格 A 级执行，HOLD（98 人）与 B 级（178 人）待人工复核；这些数字属小样试跑，非全量成果。
 - 未做用户人工抽样审计；报告作者主动声明「只完成小样本，不可宣称全方案通过」。
 
@@ -178,7 +180,7 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
 
 ### 1,000 人试跑落库与分析层（原生 PG17:5432，2026-11-22）
 
-`pipeline/`（WP0–WP14）已在原生 PG17 的 `openalex` 库完成 1,000 人试跑落库并跑通分析层，规模约 2.1 GB：
+`pipeline/`（WP0–WP16）已在原生 PG17 的 `openalex` 库完成 1,000 人试跑落库并跑通分析层，规模约 2.1 GB：
 
 | 表 | 行数 | 说明 |
 |---|---|---|
@@ -193,9 +195,11 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
 | `mobility_event` / `event_evidence` | 13,355 / 53,425 | C1–C5 事件与四判据 + external_cv 证据，规则版本 `A_1000_v1` |
 | `class_rule` / `mobility_class` | 8 / 896 | 8.5.2 权威 D/I/S→M1..M8 映射；631 可正式定类 / 265 标不确定 |
 | `cohort_member` / `cohort_evidence` | 111 / 819 | 中国背景候选队列：7 high、104 low，逐信号证据；`birth_country` 全 NULL |
-| `did_panel` / `did_estimate` / `did_annual_effect` | 3,375 / 4 / 28 | 2018 DID：7 treated、428 control；四个结果变量与 2014–2021 逐年效应 |
+| `external_birth_evidence` / `cohort_external_review` | 15 / 7 | 公开来源逐条留 URL+原文；5 证实/可能中国出生、1 假阳性、1 身份未定 |
+| `did_panel` / `did_estimate` / `did_annual_effect` | 3,359 / 4 / 28 | 2018 DID v2：5 treated、428 control；四个结果变量与 2014–2021 逐年效应 |
+| `did_robust_estimate` / `did_robust_annual_effect` | 8 / 28 | 学者层聚类 CR1 SE + 平行趋势联合 F；2x2 与事件研究双口径 |
 
-分析层边界：13,350 条事件无真实任职年份（签名为代理年），5 条 Confirmed 借用 3 人小样履历；八类分类依据原始 Word `科学家空间流动数据库建立操作1030.docx` 8.5.2 节（此前"8.5 全表未提供"是只看了设计文档的不完整结论），D/I 只认 Confirmed/Probable，阴性维度有 Possible 未决候选者 `formal_class` 留空（265 人）；「中国出生、现居美国」仍无外部数据源（`birth_country_hint` 全 NULL）；WP13 只按姓名拼音 + 中国内地/中国香港/中国台湾机构署名 + 2017 在美面板生成"中国背景候选"，7 名 high 仅作 DID 代理 treated，`birth_country` 保持 NULL。WP14 的 DID 系数使用独立组-期方差近似，未做聚类稳健推断；1000 人子集只证明流程可跑，不能给出正式政策结论。运行顺序、断点续跑、回归测试、额度自查与全部踩坑详见 `pipeline/README.md`。
+分析层边界：13,350 条事件无真实任职年份（签名为代理年），5 条 Confirmed 借用 3 人小样履历；八类分类依据原始 Word `科学家空间流动数据库建立操作1030.docx` 8.5.2 节，D/I 只认 Confirmed/Probable，阴性维度有 Possible 未决候选者 `formal_class` 留空（265 人）。WP13 按姓名拼音 + 中国机构署名 + 2017 在美面板生成"中国背景候选"（7 high / 104 low），不写 `birth_country`。WP15 对 7 名 high 逐人核对公开来源（机构官网/CV/维基/百科，每条留 URL 与原文）：4 人 verified（Yang Peidong / Zhu Jian-Kang / Hu Frank B. / Peng Fang Z.）、1 人 probable（Sun Shouheng，官方 CV 载川大本科+南大硕士但无出生地原文）、1 人算法假阳性（Joseph Wang，UCSD 官方与维基载 Technion 博士、全美职业，无中国段）、1 人身份未定（Jie Liu，B 级消歧+机构空白+同名众多）。`cohort_external_review.eligible_treated` 只放行前 5 人。WP14 v2 据此重建 DID（3,359 组-年，5 treated / 428 control）；WP16 加学者层聚类 CR1 SE 与平行趋势联合 F 检验。结果：聚类 2x2 下 `moves_any` +0.155（SE 0.055、p 0.005）但事件研究 post 均值 +0.154（p 0.35）不显著、逐年 lag 系数跳跃，两者矛盾；`cn_link` 的 lead 协方差退化（处理组二值变量零方差），F 检验降级标注为非真 F。**treated 仅 5 人、聚类小簇偏倚，全部结论只证明流程可跑，不能作政策解读**。运行顺序、断点续跑、回归测试、额度自查与全部踩坑详见 `pipeline/README.md`。
 
 ## 技术栈
 
