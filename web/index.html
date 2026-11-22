@@ -772,12 +772,23 @@ $("btn-run").onclick = async ()=>{
 $("btn-stop").onclick = ()=>{ runner.stop = true; addLog("warn","已发送停止指令…"); };
 
 /* ============ 导出 ============ */
-function download(filename, content){
-  const blob = new Blob([content], {type:"application/octet-stream"});
+function download(filename, content, mime){
+  const blob = new Blob([content], {type: mime || "application/json;charset=utf-8"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href=url; a.download=filename; a.click();
-  URL.revokeObjectURL(url);
+  a.href = url; a.download = filename; a.style.display = "none";
+  document.body.appendChild(a);          // 部分浏览器(手机/Firefox)要求链接在 DOM 中才能触发下载
+  // 极老浏览器不支持 download 属性：新开标签页展示数据，用户可另存/长按保存
+  if(!("download" in a)){
+    window.open(url, "_blank");
+  } else {
+    a.click();
+  }
+  // 关键：延迟销毁 URL 和移除链接。下载是异步的，立即 revokeObjectURL 会导致下载被取消。
+  setTimeout(()=>{
+    try { URL.revokeObjectURL(url); } catch(e){}
+    if(a.parentNode) a.parentNode.removeChild(a);
+  }, 10000);
 }
 document.querySelectorAll(".export-item").forEach(el=>{
   el.onclick = ()=>{
