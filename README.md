@@ -2,7 +2,7 @@
 
 **全球高被引学者的机构隶属与空间流动轨迹重建** — 数据基建 · 政策研究 · AI 科研工具平台
 
-> **项目状态**：第一期方法可行性验证（Proof of Concept）已完成。全量 10.5 万学者跑批、DID 分析与 Agent 平台尚未实施，详见 [项目状态](#项目状态)。
+> **项目状态**：第一期方法可行性验证（Proof of Concept）已完成；1,000 人试跑已全量抓取并完成落库（见 [项目状态](#项目状态)）。全量 10.5 万学者跑批、DID 分析与 Agent 平台尚未实施。
 
 ## 目录
 
@@ -62,14 +62,22 @@ OpenAlex/
 │   ├── verify_poc.sql                    # 导入后可执行的一致性/完整性核对
 │   ├── 三人小样原型_部署文档.md
 │   └── 三人小样原型_部署文档_Docker_WSL版.md
-├── pipeline/                         # 全量跑批（WP0/WP1/WP2）
-│   ├── README.md                         # API key 获取、额度、运行说明
+├── pipeline/                         # 全量跑批与落库（WP0–WP8）
+│   ├── README.md                         # key/额度、环境、工作包总览、运行顺序、实机结果
 │   ├── config.py                         # 环境变量/路径/限速
-│   ├── oa_client.py                      # 认证、限速、429 退避、请求留痕
-│   ├── wp0_import.py                     # 105,026 人名单导入 + 1,000 人子集
-│   ├── wp12_fetch.py                     # 作者检索 + 作品抓取（断点续跑）
+│   ├── oa_client.py                      # 认证、限速、429 额度保护、请求留痕
+│   ├── wp0_import.py                     # WP0：105,026 人名单 + 1,000 人子集
+│   ├── wp12_fetch.py                     # WP1+WP2：作者检索 + 作品抓取（断点续跑）
+│   ├── wp3_import_works.py               # WP3：作品去重导入 work（865,111 篇）
+│   ├── wp4_analyze_candidates.py         # WP4a：候选信号分析
+│   ├── wp4_disambiguate.py               # WP4b：消歧分级 A/B/HOLD/DUP
+│   ├── wp4_load_decisions.py             # WP4c：定案幂等落库
+│   ├── wp5_import_authorship.py          # WP5：署名落库（846,012 条）
+│   ├── wp6_extract_institutions.py       # WP6：从 works 抽机构/ROR/别名
+│   ├── wp7_load_institutions.py          # WP7：国家/机构/ROR 入库
+│   ├── wp8_backfill_institution.py       # WP8：回填 matched_institution_id
 │   ├── export_requests_sql.py            # 请求留痕导入数据库
-│   └── data/batch_001/                   # 试跑产物（subset/candidates/works/requests）
+│   └── data/batch_001/                   # 试跑产物（gitignored，不上传）
 └── output/                           # 分析与交付物
     └── openalex_audit_20261121/
         ├── sources/materials_digest.md
@@ -90,7 +98,7 @@ OpenAlex/
 
 **关系库为唯一真相源，AGE 图是可丢弃的派生投影**：
 
-- **PostgreSQL 16 + PostGIS**：22 张表覆盖身份、作品署名、机构地理、年度面板、事件证据分类、请求日志。`rule_version` 进入事件/分类表唯一约束，A 轨以触发器锁定不可变。
+- **PostgreSQL + PostGIS**：22 张表覆盖身份、作品署名、机构地理、年度面板、事件证据分类、请求日志。同一 schema 已导入两处——AGE 图容器（PG16）与原生落库（PG17:5432，承载 1,000 人试跑）。`rule_version` 进入事件/分类表唯一约束，A 轨以触发器锁定不可变。
 - **Apache AGE**：目标模式为 7 类节点 / 14 种边；三人小样投影实际实现 5 类节点 / 9 种边（暂不含 `Work`/`Alias` 节点及 `AUTHORED`/`SIGNED_AT`/`RENAMED_TO`/`IN_COHORT` 边）。时间作为 `AFFILIATED` 边属性、规则版本作版本属性。图随时可重建，不影响原始数据。
 - **分工**：统计判定（众数、占比、C2 抑制、阈值敏感性）全在 SQL；迁移轨迹、改名链、合作网络等路径查询走图；DID 回归导出到 pandas/statsmodels。
 
@@ -142,7 +150,8 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
 - Newman 证据完整、判为 M8；Becke / Perdew 因任职年份缺失与并列年，`mobility_class` 正式字段留空。
 - 6 条有效迁移中，2 条用署名年代理、无真实任职年份；70% 阈值下部分事件从 Probable 降为 Possible。
 - 「中国出生、现居美国」人群筛选、DID 分析、文献模块、论文写作、本地化部署尚未实施。
-- 全量跑批已搭好 `pipeline/` 并完成 1,000 人子集与 3 人极小样本验证（详见 `pipeline/README.md`），但**尚未跑满 1,000 人**：polite pool 已于 2026-02 废除，需先取得免费 API key 并设置 `OPENALEX_API_KEY` 才能翻页抓全量作品。WP1 目前只产出候选、不自动定案。
+- 全量跑批尚未开始（目标 105,027 人）；但 **1,000 人试跑已全部完成并完成落库**（详见 `pipeline/README.md`）：抓取 922,627 篇作品（请求 10,760 次），去重入库 865,111 篇 work；消歧定案 scholar=896 / identity_map=1,700；署名 846,012 条；机构 31,388（全带 ROR）+ 别名 181.6 万；已回填 646,069 条署名的 `matched_institution_id`。数据库约 1.36 GB。
+- 消歧按严格 A 级执行，HOLD（98 人）与 B 级（178 人）待人工复核；这些数字属小样试跑，非全量成果。
 - 未做用户人工抽样审计；报告作者主动声明「只完成小样本，不可宣称全方案通过」。
 
 因此本仓库的材料定位为**可审计的小样施工成果 + 证据边界声明**，而非验收通过报告。`output/` 中的验收质疑清单据此整理了付款前需澄清的事项。
@@ -159,12 +168,28 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
   `PGPASSWORD=$(cat ~/.openalex_db_pass) psql -h 127.0.0.1 -p 5433 -U postgres -d openalex`（AGE 容器）。
 - AGE 镜像的旧 tag `PG16_latest` 已失效，正确 tag 为 `release_PG16_1.6.0`。若 Docker Hub 直连超时，用 `docker.1ms.run` 镜像站拉取后 `docker tag`。
 
+### 1,000 人试跑落库（原生 PG17:5432，2026-11-22）
+
+`pipeline/`（WP0–WP8）已在原生 PG17 的 `openalex` 库完成 1,000 人试跑落库，规模约 1.36 GB：
+
+| 表 | 行数 | 说明 |
+|---|---|---|
+| `work` | 865,111 | 抓取 922,627 篇按 openalex_id 去重 |
+| `scholar` | 896 | 3 种子 + 893 新（严格 A 级定案） |
+| `identity_map` | 1,700 | openalex 896（A718/B178）+ orcid 804 |
+| `authorship` | 846,012 | 覆盖全部 896 学者 |
+| `country` / `institution` | 203 / 31,388 | 机构全部带 ROR |
+| `institution_alias` | 1,815,799 | 全 confirmed |
+| 已回填 `matched_institution_id` | 646,069 | 占署名 76.37%、占有署名串者 95.85%，孤儿外键 0 |
+
+运行顺序、断点续跑、额度自查与全部踩坑详见 `pipeline/README.md`。下一阶段为年度主机构/主国家计算 → C1–C5 事件 → DID。
+
 ## 技术栈
 
 | 层次 | 工具 |
 |------|------|
 | 抓取 | Python (requests/httpx)、OpenAlex API、ROR、ORCID、Crossref |
-| 存储 | PostgreSQL 16 + PostGIS、Apache AGE |
+| 存储 | PostgreSQL 17（原生落库）+ PostgreSQL 16 + PostGIS / Apache AGE（图容器） |
 | 计算 | pandas/polars、statsmodels/linearmodels (DID)、pytest |
 | 可视化 | Leaflet / ECharts / Plotly |
 | 交付 | Word、LaTeX、Zotero/BibTeX、Docker |
