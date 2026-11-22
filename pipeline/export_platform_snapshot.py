@@ -144,6 +144,18 @@ def build_snapshot(conn) -> dict:
             GROUP BY scholar_id ORDER BY count(*) DESC LIMIT 12
         """, (RULE_EVENT,))]
 
+        oa_works_demo = fetchall(cur, """
+            SELECT w.openalex_id, w.doi, w.title, w.pub_year AS year,
+                   w.cited_by_count,
+                   (SELECT a.raw_name FROM authorship a
+                    WHERE a.work_id=w.work_id AND a.author_position='first'
+                    LIMIT 1) AS first_author
+            FROM work w
+            WHERE w.title IS NOT NULL AND w.title <> ''
+            ORDER BY w.cited_by_count DESC NULLS LAST
+            LIMIT 24
+        """)
+
         trajectories = []
         for sid in rich_ids:
             meta = fetchall(cur, """
@@ -184,6 +196,7 @@ def build_snapshot(conn) -> dict:
         "country_flows": country_flows,
         "top_institutions": top_institutions,
         "cohort": cohort,
+        "oa_works_demo": oa_works_demo,
         "did_estimates": did_estimates,
         "did_annual": did_annual,
         "trajectories": trajectories,

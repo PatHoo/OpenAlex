@@ -51,6 +51,10 @@
   .bar.ok{fill:#10b981}
   .bar.red{fill:#ef4444}
   .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+  .viz-mode{padding:5px 10px;font-size:12px;color:var(--muted)}
+  .viz-mode.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .heat td{border:1px solid #fff;text-align:center;min-width:46px;font-size:11px;color:#1e293b}
+  .heat th{background:transparent;position:static}
   .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
   table{width:100%;border-collapse:collapse;font-size:12.5px}
   th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
@@ -149,14 +153,19 @@
     <h2>迁移网络与空间分布</h2>
     <div class="grid g2">
       <div class="card">
-        <h3>国家 / 地区流向 Top 20</h3>
+        <h3>国家 / 地区流向 · 多维视图</h3>
         <div class="toolbar">
           <select id="flow-filter">
             <option value="cross">仅跨国/地区</option>
             <option value="all">全部（含国内换机构）</option>
           </select>
+          <button class="viz-mode active" data-mode="bar" onclick="setFlowMode('bar')">条形</button>
+          <button class="viz-mode" data-mode="heat" onclick="setFlowMode('heat')">热力矩阵</button>
+          <button class="viz-mode" data-mode="flow" onclick="setFlowMode('flow')">流线关系</button>
+          <button class="viz-mode" data-mode="three" onclick="setFlowMode('three')">三维柱状</button>
           <span class="muted small" id="flow-hint"></span>
         </div>
+        <div class="small muted" style="margin-bottom:8px">热力 / 流线 / 三维均为<b>非地图</b>表达，用于展示流向结构；不替代合规底地图层。</div>
         <div id="chart-flows" class="chart"></div>
       </div>
       <div class="card">
@@ -208,13 +217,14 @@
 
   <section class="tab" id="tab-literature">
     <h2>文献模块（合同第二期范围）</h2>
-    <div class="note blue">合同第二期要求：跨库语义检索、题录格式生成与转换、云盘式存储/分类/即时调用。本 MVP 先实现<b>本地题录管理闭环</b>：粘贴 BibTeX → 自动标签分类 → 检索 → GB/T 7714 / APA / MLA 转换导出。跨库 API 检索需接入有合法授权的数据源后启用。</div>
+    <div class="note blue">合同第二期要求：跨库语义检索、题录格式生成与转换、云盘式存储/分类/即时调用。Demo 提供<b>本地题录管理闭环</b>：BibTeX / OpenAlex 真实单库题录 → 自动标签分类 → 检索 → GB/T 7714 / APA / MLA 转换导出。<b>跨库 API 检索尚未接入</b>，本页不以单库冒充跨库；需合法授权数据源后启用。</div>
     <div class="grid g2">
       <div class="card">
         <h3>导入题录（BibTeX）</h3>
         <textarea id="bib-input" placeholder="粘贴 BibTeX，例如：&#10;@article{smith2020,&#10;  author={Smith, John and Lee, Mary},&#10;  title={Global scientist mobility},&#10;  journal={Nature}, year={2020}, volume={580}, pages={1--10}&#10;}"></textarea>
         <div class="toolbar" style="margin-top:10px">
           <button class="primary" onclick="importBib()">解析并入库</button>
+          <button onclick="loadOAWorks()">加载 OpenAlex 示例题录</button>
           <button onclick="clearLib()">清空</button>
           <span class="muted small" id="lib-count"></span>
         </div>
@@ -259,6 +269,16 @@
       <div id="local-file-list" class="small"></div>
       <div class="toolbar" style="margin-top:12px"><button onclick="generateBridgeNote()">生成调用说明</button></div>
       <pre id="bridge-output">点击“生成调用说明”查看三种软件的启动命令与文件路径。</pre>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>执行回传演示</h3>
+      <div class="note">演示回传接口，不伪造软件执行：<b>示例结果来自平台标准库复算</b>（`did_robust_estimate`），不是本机 Stata/SPSS 实际运行输出。上传本机真实输出 CSV 后，走同一展示通道。</div>
+      <div class="toolbar">
+        <button class="primary" onclick="loadDemoFeedback()">载入平台复算示例（模拟回传）</button>
+        <label class="btn">上传本机软件输出 CSV<input type="file" id="feedback-file" accept=".csv,text/csv" onchange="loadFeedbackFile(event)" style="display:none"></label>
+      </div>
+      <div id="feedback-status" class="small muted" style="margin:10px 0"></div>
+      <div class="scroll" id="feedback-table" style="max-height:300px"><div class="muted small">尚未载入回传结果。</div></div>
     </div>
   </section>
 
@@ -402,12 +422,77 @@ stackedBars("#chart-events", S.events_by_type.map(r=>({label:r.event_type, Confi
   ["Confirmed","Probable","Possible"], ["#10b981","#2563eb","#f59e0b"]);
 lineChart("#chart-years", S.events_by_year.map(r=>({label:String(r.year), y:r.total})));
 
-/* ---------- network ---------- */
-function renderFlows(){
+/* ---------- network: bar / heatmap / flow diagram / 3D bars (non-map) ---------- */
+let flowMode="bar";
+function flowRows(){
   const mode=$("#flow-filter").value;
-  let rows=S.country_flows.filter(r=>mode==="all"||r.cross_border).slice(0,20);
-  hBars("#chart-flows", rows.map(r=>({label:`${r.from_country} → ${r.to_country}`, value:r.total, color:r.cross_border?"#2563eb":"#94a3b8"})), {width:560,left:104,rowH:24});
-  $("#flow-hint").textContent = `显示 ${rows.length} 条，共 ${S.country_flows.length} 条候选流向`;
+  return S.country_flows.filter(r=>mode==="all"||r.cross_border).slice(0,20);
+}
+function renderHeat(rows){
+  const codes=Array.from(new Set(rows.flatMap(r=>[r.from_country,r.to_country]))).slice(0,10);
+  const map=new Map(rows.map(r=>[r.from_country+"|"+r.to_country,r.total]));
+  const max=Math.max(1,...map.values());
+  let h='<table class="heat"><thead><tr><th>from ↓ / to →</th>'+codes.map(c=>`<th>${esc(c)}</th>`).join("")+"</tr></thead><tbody>";
+  codes.forEach(a=>{
+    h+=`<tr><th>${esc(a)}</th>`;
+    codes.forEach(b=>{
+      const v=map.get(a+"|"+b)||0, alpha=v?Math.max(.10,Math.min(.85,v/max)).toFixed(2):0;
+      h+=`<td style="background:rgba(37,99,235,${alpha})" title="${esc(a)}→${esc(b)}: ${v}">${v||"·"}</td>`;
+    });
+    h+="</tr>";
+  });
+  $("#chart-flows").innerHTML=h+"</tbody></table>";
+}
+function renderFlowDiagram(rows){
+  const W=560,H=360,cx=W/2,cy=H/2,R=128;
+  const codes=Array.from(new Set(rows.slice(0,12).flatMap(r=>[r.from_country,r.to_country]))).slice(0,12);
+  const pos={};
+  codes.forEach((c,i)=>{const a=-Math.PI/2+i*2*Math.PI/codes.length;pos[c]={x:cx+R*Math.cos(a),y:cy+R*Math.sin(a)};});
+  const max=Math.max(1,...rows.map(r=>r.total));
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  rows.slice(0,14).forEach(r=>{
+    const p1=pos[r.from_country],p2=pos[r.to_country];
+    if(!p1||!p2||r.from_country===r.to_country)return;
+    const mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2;
+    const dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.sqrt(dx*dx+dy*dy)||1;
+    const bx=mx-dy/len*22,by=my+dx/len*22;
+    s+=`<path d="M${p1.x.toFixed(1)},${p1.y.toFixed(1)} Q${bx.toFixed(1)},${by.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}" fill="none" stroke="${r.cross_border?'#2563eb':'#94a3b8'}" stroke-opacity=".55" stroke-width="${(1+r.total/max*4).toFixed(1)}"><title>${esc(r.from_country)}→${esc(r.to_country)}: ${r.total}</title></path>`;
+  });
+  codes.forEach(c=>{
+    const p=pos[c];
+    s+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="12" fill="#eff6ff" stroke="#2563eb"/><text class="tick" x="${p.x.toFixed(1)}" y="${(p.y+4).toFixed(1)}" text-anchor="middle" style="font-size:11px;fill:#1e40af">${esc(c)}</text>`;
+  });
+  s+="</svg>";
+  $("#chart-flows").innerHTML=s;
+}
+function renderThreeD(rows){
+  const W=560,H=300,baseY=244,step=66,w=30,d=15;
+  const top=rows.slice(0,8),max=Math.max(1,...top.map(r=>r.total));
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  s+=`<line class="axis" x1="32" y1="${baseY}" x2="${W-12}" y2="${baseY}"/>`;
+  top.forEach((r,i)=>{
+    const x=44+i*step,h=Math.max(4,r.total/max*150),fill=r.cross_border?"#2563eb":"#94a3b8";
+    s+=`<polygon points="${x},${baseY} ${x+w},${baseY} ${x+w},${baseY-h} ${x},${baseY-h}" fill="${fill}" opacity=".86"/>`;
+    s+=`<polygon points="${x},${baseY-h} ${x+w},${baseY-h} ${x+w+d},${baseY-h-d} ${x+d},${baseY-h-d}" fill="${r.cross_border?'#93c5fd':'#e2e8f0'}"/>`;
+    s+=`<polygon points="${x+w},${baseY} ${x+w+d},${baseY-d} ${x+w+d},${baseY-h-d} ${x+w},${baseY-h}" fill="${r.cross_border?'#1d4ed8':'#64748b'}"/>`;
+    s+=`<text class="tick" x="${x+w/2}" y="${(baseY-h-d-6).toFixed(1)}" text-anchor="middle">${r.total}</text>`;
+    s+=`<text class="tick" x="${x+w/2}" y="${baseY+20}" text-anchor="middle" style="font-size:9px">${esc(r.from_country)}→${esc(r.to_country)}</text>`;
+  });
+  s+="</svg>";
+  $("#chart-flows").innerHTML=s;
+}
+function renderFlows(){
+  const rows=flowRows();
+  if(flowMode==="heat")renderHeat(rows);
+  else if(flowMode==="flow")renderFlowDiagram(rows);
+  else if(flowMode==="three")renderThreeD(rows);
+  else hBars("#chart-flows", rows.map(r=>({label:`${r.from_country} → ${r.to_country}`, value:r.total, color:r.cross_border?"#2563eb":"#94a3b8"})), {width:560,left:104,rowH:24});
+  $("#flow-hint").textContent=`${({bar:"条形",heat:"热力矩阵",flow:"流线关系",three:"三维柱状"})[flowMode]} · 显示 ${rows.length} / ${S.country_flows.length} 条`;
+}
+function setFlowMode(m){
+  flowMode=m;
+  $$(".viz-mode").forEach(b=>b.classList.toggle("active",b.dataset.mode===m));
+  renderFlows();
 }
 $("#flow-filter").addEventListener("change",renderFlows); renderFlows();
 hBars("#chart-inst", S.top_institutions.slice(0,20).map(r=>({label:r.name, value:r.total, color:"#0ea5e9"})), {width:560,left:196,rowH:24});
@@ -576,11 +661,25 @@ function importBib(){
   saveLib();renderLibrary();
   alert(`解析 ${parsed.length} 条，新增 ${added} 条。`);
 }
+function loadOAWorks(){
+  const rows=(S.oa_works_demo||[]);
+  if(!rows.length){alert("快照中暂无 OpenAlex 示例题录。");return;}
+  const keys=new Set(lib.map(x=>x.key));
+  let added=0;
+  rows.forEach(w=>{
+    const key="oa_"+(w.openalex_id||"").split("/").pop();
+    if(keys.has(key))return;
+    lib.push({type:"article",key,author:w.first_author||"",title:w.title||"(无题名)",journal:"",year:String(w.year||""),volume:"",issue:"",pages:"",doi:w.doi||"",tags:Array.from(new Set([...autoTags((w.title||"")+" "+(w.first_author||"")),"OpenAlex单库"]))});
+    keys.add(key);added++;
+  });
+  saveLib();renderLibrary();
+  alert(`已载入 ${rows.length} 条 OpenAlex 真实题录（单库），新增 ${added} 条。`);
+}
 function clearLib(){if(confirm("确认清空本机文献库？")){lib=[];saveLib();renderLibrary();}}
 function fmtAuthors(s,style){
   const arr=String(s||"").split(/\s+and\s+/i).map(x=>x.trim()).filter(Boolean);
   if(!arr.length)return "佚名";
-  const cv=(a)=>{const p=a.split(",").map(x=>x.trim());const last=p[0]||a;const first=(p[1]||"").split(/\s+/).map(x=>x[0]+".").join(" ");return {last,first,full:first?`${last}, ${first}`:last,gb:first?`${first} ${last}`:last};};
+  const cv=(a)=>{const p=a.split(",").map(x=>x.trim());const last=p[0]||a;const first=(p[1]||"").split(/\s+/).filter(Boolean).map(x=>x[0]+".").join(" ");return {last,first,full:first?`${last}, ${first}`:last,gb:first?`${first} ${last}`:last};};
   if(style==="gb")return arr.map(a=>cv(a).gb).join(", ");
   if(style==="apa")return arr.map(a=>cv(a).full).join(arr.length>2?", & ":arr.length===2?" & ":"");
   return arr.map(a=>{const c=cv(a);return c.first?`${c.last}, ${c.first}`:c.last;}).join(arr.length>2?", and ":arr.length===2?" and ":"");
@@ -611,13 +710,13 @@ renderLibrary();
 /* ---------- guided demo ---------- */
 const DEMO_STEPS=[
   {tab:"overview",title:"数据地基与统计分析",text:"先看规模与方法链路：1,000 人试跑已跑通 WP0–WP16，形成 896 名定案学者、86.5 万篇去重作品、1.3 万余条迁移事件。这里展示的是可复算统计，不是全量 20 万交付；请特别留意分类中 265 人因证据未决而留空正式类别。"},
-  {tab:"network",title:"空间可视化与流向",text:"国家/地区流向和机构分布用于展示迁移信号。底图采用腾讯位置服务 GL JS，符合国内合规要求；境外图层属非默认场景，演示环境不内置 Key，正式部署时由贵方申请并由后端代理。热力图、流线图和三维图层是第二期后续扩展项。"},
+  {tab:"network",title:"空间可视化与流向",text:"流向分析新增四种可切换视图：条形、热力矩阵、流线关系、三维柱状，均为非地图表达，用于展示流向结构；合规底图仍采用腾讯位置服务 GL JS，境外 Key 需贵方申请并由后端代理。这里展示的是流向结构，不把非地图图冒充地图图层。"},
   {tab:"trajectory",title:"学者年度轨迹",text:"按学者查看年度主机构/主国家变化与事件证据。绝大多数事件的 actual_year 为空，年份来自论文署名代理，因此这里展示的是“候选轨迹”而非已核实的真实任职年份——这正是后续需要补履历证据的地方。"},
   {tab:"did",title:"DID 流程验证",text:"2018 中美科技战 DID 已跑出系数、置信区间和逐年效应。请如实说明：treated 仅 5 人，2x2 聚类口径显著但事件研究平行趋势不显著，两套口径矛盾；本页只证明流程可跑通，不构成政策结论。全量后才会做匹配、权重和安慰剂检验。"},
   {tab:"cohort",title:"中国背景候选与证据",text:"队列由姓名拼音、中国机构署名和 2017 在美状态生成，只是算法候选。外部证据逐条留存公开来源 URL 与原文；身份未匹配者一律不进 treated。cohort_member.birth_country 保持 NULL，公开履历不等于官方出生证明。"},
-  {tab:"literature",title:"文献模块",text:"第二期文献板块先做本地可闭环的能力：粘贴 BibTeX → 自动标签分类 → 检索 → GB/T 7714 / APA / MLA 转换导出，数据只存本机浏览器。跨库语义检索需接入有合法授权的数据源后启用，不在 demo 中伪装已实现。"},
-  {tab:"localtools",title:"本地软件协同",text:"SPSS / Stata / ArcGIS 的调用方式已标准化：统一 CSV 数据 + 可直接运行的脚本模板。demo 不远程调用软件、也不伪造软件输出；正式环境在本机安装相应软件后即可运行模板，结果回写由后续集成完成。"},
-  {tab:"export",title:"导出与下一步",text:"所有图表都可由只读快照复算。第二期 demo 到此结束；尚未建设的是跨库文献检索、热力/流线/三维图层、软件执行结果回传，以及全量跑批。全量跑批还需确认 API 额度、磁盘预算与交付时间表。"}
+  {tab:"literature",title:"文献模块",text:"第二期文献板块先做可闭环能力：粘贴 BibTeX，或加载 24 条 OpenAlex 真实题录（单库）→ 自动标签分类 → 检索 → GB/T 7714 / APA / MLA 转换导出，数据只存本机浏览器。跨库语义检索需合法授权数据源，demo 明确标注单库来源，不以单库冒充跨库。"},
+  {tab:"localtools",title:"本地软件协同与执行回传",text:"SPSS / Stata / ArcGIS 的调用方式已标准化：统一 CSV + 脚本模板。回传通道可上传本机软件真实输出 CSV 并展示；示例按钮载入的是平台标准库复算结果，已明确标注为模拟回传，不冒充软件实际运行。"},
+  {tab:"export",title:"导出与下一步",text:"所有图表都可由只读快照复算。第二期 demo 到此结束：热力/流线/三维已作为非地图视图加入，单库题录与回传通道已演示；真正未建设的是跨库授权检索、地图热力/流线/三维图层、软件执行自动回传与全量跑批。全量跑批还需确认 API 额度、磁盘预算与交付时间表。"}
 ];
 let demoIdx=0,demoTimer=null;
 function renderDemo(){
@@ -653,6 +752,42 @@ function toggleAuto(){
 /* ---------- local software bridge ---------- */
 const BRIDGE_FILES=["did_panel.csv","did_robust_estimate.csv","did_robust_annual_effect.csv","mobility_event_sample.csv","mobility_class_summary.csv"];
 $("#local-file-list").innerHTML=BRIDGE_FILES.map(f=>`<a href="../deliver/local_tools/data/${f}" download>${f}</a>`).join(" · ");
+function parseCsv(text){
+  const lines=String(text||"").replace(/\r/g,"").split("\n").filter(l=>l.trim()!=="");
+  if(!lines.length)return [];
+  const parseLine=(line)=>{
+    const out=[];let cur="",q=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"'){if(q&&line[i+1]==='"'){cur+='"';i++;}else q=!q;}
+      else if(ch===','&&!q){out.push(cur.trim());cur="";}
+      else cur+=ch;
+    }
+    out.push(cur.trim());return out;
+  };
+  const head=parseLine(lines[0]);
+  return lines.slice(1).map(l=>{const v=parseLine(l),o={};head.forEach((h,i)=>o[h]=v[i]||"");return o;});
+}
+function renderFeedback(rows,status){
+  $("#feedback-status").textContent=status;
+  if(!rows.length){$("#feedback-table").innerHTML='<div class="muted small">回传结果为空。</div>';return;}
+  const cols=Object.keys(rows[0]);
+  $("#feedback-table").innerHTML=`<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows.slice(0,100).map(r=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+function loadDemoFeedback(){
+  const rows=(S.did_estimates||[]).map(r=>({outcome:r.outcome,specification:r.specification,coefficient:r.coefficient,std_error:r.std_error,p_value:r.p_value,parallel_trend:r.parallel_trend_passed}));
+  renderFeedback(rows,`模拟回传：数据来自平台标准库复算 did_robust_estimate，非本机软件运行。共 ${rows.length} 行。`);
+}
+function loadFeedbackFile(e){
+  const file=e.target.files&&e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{const rows=parseCsv(reader.result);renderFeedback(rows,`已接收本机输出：${file.name}，共 ${rows.length} 行。`);}
+    catch(err){$("#feedback-status").textContent="CSV 解析失败："+err.message;}
+  };
+  reader.readAsText(file,"utf-8");
+}
 function generateBridgeNote(){
   $("#bridge-output").textContent=[
     "本地软件协同调用说明（数据均在本机，不上传）",

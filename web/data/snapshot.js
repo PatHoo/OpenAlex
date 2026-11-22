@@ -1,5 +1,5 @@
 window.OA_SNAPSHOT = {
-  "generated_at": "2026-11-22T23:22:50+00:00",
+  "generated_at": "2026-11-22T23:35:51+00:00",
   "scope": {
     "event_rule": "A_1000_v1",
     "cohort_rule": "CN_US_2017_v1",
@@ -1139,6 +1139,200 @@ window.OA_SNAPSHOT = {
       "verdict": null,
       "eligible_treated": null,
       "source_count": null
+    }
+  ],
+  "oa_works_demo": [
+    {
+      "openalex_id": "https://openalex.org/W2100837269",
+      "doi": "https://doi.org/10.1038/227680a0",
+      "title": "Cleavage of Structural Proteins during the Assembly of the Head of Bacteriophage T4",
+      "year": 1970,
+      "cited_by_count": 269290,
+      "first_author": "U. K. LAEMMLI"
+    },
+    {
+      "openalex_id": "https://openalex.org/W1981368803",
+      "doi": "https://doi.org/10.1103/physrevlett.77.3865",
+      "title": "Generalized Gradient Approximation Made Simple",
+      "year": 1996,
+      "cited_by_count": 228170,
+      "first_author": "John P. Perdew"
+    },
+    {
+      "openalex_id": "https://openalex.org/W3118615836",
+      "doi": "https://doi.org/10.1136/bmj.n71",
+      "title": "The PRISMA 2020 statement: an updated guideline for reporting systematic reviews",
+      "year": 2021,
+      "cited_by_count": 161386,
+      "first_author": null
+    },
+    {
+      "openalex_id": "https://openalex.org/W3128646645",
+      "doi": "https://doi.org/10.3322/caac.70090",
+      "title": "Global Cancer Statistics 2020: GLOBOCAN Estimates of Incidence and Mortality Worldwide for 36 Cancers in 185 Countries",
+      "year": 2021,
+      "cited_by_count": 135579,
+      "first_author": null
+    },
+    {
+      "openalex_id": "https://openalex.org/W2083222334",
+      "doi": "https://doi.org/10.1103/physrevb.54.11169",
+      "title": "Efficient iterative schemes for ab initio total-energy calculations using a plane-wave basis set",
+      "year": 1996,
+      "cited_by_count": 132216,
+      "first_author": "G. Kresse"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2099697766",
+      "doi": "https://doi.org/10.1016/0749-5978(91)90020-t",
+      "title": "The theory of planned behavior",
+      "year": 1991,
+      "cited_by_count": 132018,
+      "first_author": "Icek Ajzen"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2071666535",
+      "doi": "https://doi.org/10.1080/10705519909540118",
+      "title": "Cutoff criteria for fit indexes in covariance structure analysis: Conventional criteria versus new alternatives",
+      "year": 1999,
+      "cited_by_count": 128968,
+      "first_author": null
+    },
+    {
+      "openalex_id": "https://openalex.org/W2163605009",
+      "doi": "https://doi.org/10.1145/3065386",
+      "title": "ImageNet classification with deep convolutional neural networks",
+      "year": 2017,
+      "cited_by_count": 118319,
+      "first_author": null
+    },
+    {
+      "openalex_id": "https://openalex.org/W2143981217",
+      "doi": "https://doi.org/10.1063/1.464913",
+      "title": "Density-functional thermochemistry. III. The role of exact exchange",
+      "year": 1993,
+      "cited_by_count": 111965,
+      "first_author": "Axel D. Becke"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2919115771",
+      "doi": "https://doi.org/10.1038/nature14539",
+      "title": "Deep learning",
+      "year": 2015,
+      "cited_by_count": 110829,
+      "first_author": null
+    },
+    {
+      "openalex_id": "https://openalex.org/W2055043387",
+      "doi": "https://doi.org/10.1016/s0022-2836(05)80360-2",
+      "title": "Basic Local Alignment Search Tool",
+      "year": 1990,
+      "cited_by_count": 109574,
+      "first_author": "Stephen F. Altschul"
+    },
+    {
+      "openalex_id": "https://openalex.org/W1970127494",
+      "doi": "https://doi.org/10.1103/physrevb.50.17953",
+      "title": "Projector augmented-wave method",
+      "year": 1994,
+      "cited_by_count": 98512,
+      "first_author": "P. E. Blöchl"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2889646458",
+      "doi": "https://doi.org/10.3322/caac.21492",
+      "title": "Global cancer statistics 2018: GLOBOCAN estimates of incidence and mortality worldwide for 36 cancers in 185 countries",
+      "year": 2018,
+      "cited_by_count": 96127,
+      "first_author": null
+    },
+    {
+      "openalex_id": "https://openalex.org/W2131350133",
+      "doi": "https://doi.org/10.1107/s0108767307043930",
+      "title": "A short history of SHELX",
+      "year": 2007,
+      "cited_by_count": 92014,
+      "first_author": "George M. Sheldrick"
+    },
+    {
+      "openalex_id": "https://openalex.org/W1979544533",
+      "doi": "https://doi.org/10.1103/physrevb.59.1758",
+      "title": "From ultrasoft pseudopotentials to the projector augmented-wave method",
+      "year": 1999,
+      "cited_by_count": 90461,
+      "first_author": "G. Kresse"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2156098321",
+      "doi": "https://doi.org/10.1136/bmj.b2535",
+      "title": "Preferred reporting items for systematic reviews and meta-analyses: the PRISMA statement",
+      "year": 2009,
+      "cited_by_count": 87732,
+      "first_author": "D. Moher"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2007395042",
+      "doi": "https://doi.org/10.1016/0927-0256(96)00008-0",
+      "title": "Efficiency of ab-initio total energy calculations for metals and semiconductors using a plane-wave basis set",
+      "year": 1996,
+      "cited_by_count": 81318,
+      "first_author": "G. Kresse"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2134049139",
+      "doi": "https://doi.org/10.1037/0033-295x.84.2.191",
+      "title": "Self-efficacy: Toward a unifying theory of behavioral change.",
+      "year": 1977,
+      "cited_by_count": 79919,
+      "first_author": "Albert Bandura"
+    },
+    {
+      "openalex_id": "https://openalex.org/W4294215472",
+      "doi": "https://doi.org/10.1371/journal.pmed.1000097",
+      "title": "Preferred Reporting Items for Systematic Reviews and Meta-Analyses: The PRISMA Statement",
+      "year": 2009,
+      "cited_by_count": 79661,
+      "first_author": "David Moher"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2158714788",
+      "doi": "https://doi.org/10.1093/nar/25.17.3389",
+      "title": "Gapped BLAST and PSI-BLAST: a new generation of protein database search programs",
+      "year": 1997,
+      "cited_by_count": 79411,
+      "first_author": "S. Altschul"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2117692326",
+      "doi": "https://doi.org/10.1016/j.cell.2011.02.013",
+      "title": "Hallmarks of Cancer: The Next Generation",
+      "year": 2011,
+      "cited_by_count": 78835,
+      "first_author": "Douglas Hanahan"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2058122340",
+      "doi": "https://doi.org/10.1126/science.1102896",
+      "title": "Electric Field Effect in Atomically Thin Carbon Films",
+      "year": 2004,
+      "cited_by_count": 73432,
+      "first_author": "K. S. Novoselov"
+    },
+    {
+      "openalex_id": "https://openalex.org/W2230728100",
+      "doi": "https://doi.org/10.1103/physrev.140.a1133",
+      "title": "Self-Consistent Equations Including Exchange and Correlation Effects",
+      "year": 1965,
+      "cited_by_count": 72168,
+      "first_author": null
+    },
+    {
+      "openalex_id": "https://openalex.org/W4242883546",
+      "doi": "https://doi.org/10.1037/0003-066x.55.1.68",
+      "title": "Self-determination theory and the facilitation of intrinsic motivation, social development, and well-being.",
+      "year": 2000,
+      "cited_by_count": 70357,
+      "first_author": "Richard M. Ryan"
     }
   ],
   "did_estimates": [
