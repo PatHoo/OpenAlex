@@ -213,7 +213,11 @@
           <div class="hint">预置名单按 Elsevier 2017 高被引排名升序（引用最高者优先）。</div>
         </div>
         <div id="panel-paste" style="display:none">
-          <label>粘贴姓名（每行一个；或 CSV 含 name / authfull 列）</label>
+          <label>方式一：上传本地文件（.csv / .txt / .tsv）</label>
+          <input type="file" id="file-input" accept=".csv,.txt,.tsv,text/csv,text/plain,text/tab-separated-values" style="display:none">
+          <button class="btn btn-ghost" id="btn-upload">📁 选择文件上传</button>
+          <span class="hint" id="file-name" style="display:inline-block;margin-left:10px"></span>
+          <div style="margin:14px 0 6px"><label>方式二：粘贴姓名（每行一个；或 CSV 含 name / authfull 列）</label></div>
           <textarea id="paste" placeholder="Zhang, Wei&#10;Li, Hong&#10;Wang, Xiaoming"></textarea>
           <div style="margin-top:10px"><button class="btn btn-primary" id="btn-load-paste">加载名单</button></div>
         </div>
@@ -351,29 +355,33 @@ function parseNameList(text){
   const headerHit = /name|authfull|姓名|fullname/.test(first);
   let rows = [];
   if(headerHit){
-    // 简易 CSV 解析（兼容引号内逗号）
-    const all = parseCSV(sample);
+    // 自动识别分隔符：逗号或制表符（TSV）
+    const delim = first.includes("\t") ? "\t" : ",";
+    const all = parseDelim(sample, delim);
     const header = all[0].map(h=>h.trim().toLowerCase());
-    const col = header.findIndex(h=>["name","authfull","姓名","fullname"].includes(h));
-    const c = col>=0?col:0;
-    for(let i=1;i<all.length;i++){ if(all[i][c] && all[i][c].trim()) rows.push(all[i][c].trim()); }
+    // 优先匹配 authfull / 姓名（全名列），其次 name / fullname
+    const col = header.findIndex(h=>["authfull","姓名"].includes(h));
+    const c = col>=0 ? col : header.findIndex(h=>["name","fullname"].includes(h));
+    const ci = c>=0 ? c : 0;
+    for(let i=1;i<all.length;i++){ if(all[i][ci] && all[i][ci].trim()) rows.push(all[i][ci].trim()); }
   } else {
     rows = lines;
   }
   return rows.map((name,i)=>({src_id:i+1, authfull:name}));
 }
-function parseCSV(text){
+function parseDelim(text, delim){
   const rows=[]; let cur="", row=[], inQ=false;
   for(let i=0;i<text.length;i++){
     const ch=text[i];
     if(inQ){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else inQ=false; } else cur+=ch; }
-    else { if(ch==='"') inQ=true; else if(ch===','){ row.push(cur); cur=""; }
+    else { if(ch==='"') inQ=true; else if(ch===delim){ row.push(cur); cur=""; }
       else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=""; }
       else if(ch!=='\r') cur+=ch; }
   }
   if(cur!==""||row.length){ row.push(cur); rows.push(row); }
   return rows;
 }
+function parseCSV(text){ return parseDelim(text, ","); }
 
 let presetNames = null;
 let presetLoading = null;
@@ -409,6 +417,24 @@ $("btn-load-preset").onclick = async ()=>{
 $("btn-load-paste").onclick = ()=>{
   roster = parseNameList($("paste").value);
   setListStatus(roster.length ? {ok:true, count:roster.length} : {ok:false, error:"名单为空"});
+};
+
+/* ============ 本地文件上传 ============ */
+$("btn-upload").onclick = ()=> $("file-input").click();
+$("file-input").onchange = ()=>{
+  const file = $("file-input").files[0];
+  if(!file) return;
+  $("file-name").textContent = `已选：${file.name}（${(file.size/1024).toFixed(1)} KB）`;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const text = String(reader.result||"");
+    $("paste").value = text;              // 回填到文本框，可预览/编辑
+    roster = parseNameList(text);
+    setListStatus(roster.length ? {ok:true, count:roster.length} : {ok:false, error:"文件内容无法解析出姓名"});
+  };
+  reader.onerror = ()=> setListStatus({ok:false, error:"文件读取失败"});
+  reader.readAsText(file, "utf-8");
+  $("file-input").value = "";             // 允许重复选同一文件
 };
 function setListStatus(r){
   const el=$("list-status");
