@@ -16,3 +16,6 @@ __pycache__/
 *.swp
 .DS_Store
 Thumbs.db
+
+# WorkBuddy 部署标记文件
+.wbapp_*.genie

@@ -176,20 +176,21 @@
 
     <div class="content">
       <div class="steps">
-        <div class="step active" id="step-1"><span class="num">1</span> 设置 Key</div>
+        <div class="step active" id="step-1"><span class="num">1</span> 设置 Key（可选）</div>
         <div class="step" id="step-2"><span class="num">2</span> 选名单</div>
         <div class="step" id="step-3"><span class="num">3</span> 抓取</div>
         <div class="step" id="step-4"><span class="num">4</span> 导出</div>
       </div>
 
       <div class="card" id="step-key">
-        <div class="card-head"><div class="step-no">1</div><h2>设置 OpenAlex API Key</h2></div>
+        <div class="card-head"><div class="step-no">1</div><h2>设置 OpenAlex API Key（可选）</h2></div>
         <div class="keybox" id="key-warn">⚠️ 您的 key 只保存在本浏览器（localStorage），不会发送到任何服务器。</div>
         <div class="row">
           <div class="grow2"><input type="text" id="key" placeholder="粘贴您的 API key" autocomplete="off"></div>
           <button class="btn btn-primary" id="btn-key">保存 Key</button>
         </div>
         <div class="hint">
+          Key 为<strong>可选</strong>：不填也能匿名抓取，但额度低、速度慢、易被限流。建议填 key。
           免费 key 每天 $1 额度（约 1 万次检索）、30 请求/秒。前往
           <a href="https://openalex.org/signup" target="_blank">openalex.org/signup</a> 注册，
           再到 <a href="https://openalex.org/settings/api-key" target="_blank">设置页</a> 复制，并到邮箱点激活链接。
@@ -375,15 +376,21 @@ function parseCSV(text){
 }
 
 let presetNames = null;
-async function loadPresetCSV(){
+let presetLoading = null;
+async function loadPreset(){
   if(presetNames) return presetNames;
-  addLog("info","正在加载预置名单（约 2.7MB）…");
-  const resp = await fetch("roster.csv");
-  const text = await resp.text();
-  const all = parseCSV(text);
-  presetNames = all.slice(1).map((r,i)=>({src_id:i+1, authfull:r[1]})).filter(r=>r.authfull);
-  addLog("ok",`预置名单已加载：${presetNames.length} 人`);
-  return presetNames;
+  if(presetLoading) return presetLoading;
+  presetLoading = (async ()=>{
+    addLog("info","正在加载预置名单…");
+    const resp = await fetch("roster.txt");
+    const text = await resp.text();
+    // 纯文本每行一个姓名，split 解析（比 CSV 逐字符解析快数十倍）
+    presetNames = text.split(/\r?\n/).map(n=>n.trim()).filter(Boolean)
+      .map((name,i)=>({src_id:i+1, authfull:name}));
+    addLog("ok",`预置名单已加载：${presetNames.length} 人`);
+    return presetNames;
+  })();
+  return presetLoading;
 }
 
 $("btn-load-preset").onclick = async ()=>{
@@ -392,7 +399,7 @@ $("btn-load-preset").onclick = async ()=>{
   btn.disabled=true; const old=btn.textContent; btn.textContent="加载中…";
   const el=$("list-status"); el.className="msg"; el.textContent="⏳ 正在读取名单…";
   try{
-    const names = await loadPresetCSV();
+    const names = await loadPreset();
     roster = names.slice(offset, offset+limit);
     setListStatus({ok:true, count:roster.length, preset_total:names.length});
   }catch(e){
@@ -504,6 +511,9 @@ function loadState(){
 }
 loadState();
 
+/* 页面加载后立即后台预取预置名单，用户点击时秒开 */
+setTimeout(()=>{ loadPreset().catch(()=>{}); }, 300);
+
 /* ============ 抓取主循环 ============ */
 async function runFetch(topN, maxWorks){
   runner.running = true; runner.stop = false;
@@ -594,11 +604,13 @@ function renderResults(){
 }
 
 $("btn-run").onclick = async ()=>{
-  if(!apiKey){ toast("请先设置 API key","err"); return; }
   if(!roster.length){ toast("请先加载名单","err"); return; }
   const topN = parseInt($("topn").value||"5");
   const mw = ($("maxworks").value||"").trim();
   const maxWorks = mw ? parseInt(mw) : null;
+  if(!apiKey){
+    addLog("warn","未设置 API key，将以匿名模式抓取（额度低、速度慢，建议设置 key）");
+  }
   addLog("info",`启动抓取：${roster.length} 人`);
   runFetch(topN, maxWorks);
 };
