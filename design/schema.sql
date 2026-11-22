@@ -325,14 +325,71 @@ CREATE TABLE cohort_member (
 );
 
 CREATE TABLE did_panel (
-    scholar_id    BIGINT NOT NULL REFERENCES scholar(scholar_id),
-    year          SMALLINT NOT NULL,
-    treated       BOOLEAN NOT NULL,
-    post          BOOLEAN NOT NULL,
-    outcome_moves INTEGER,
-    covariates    JSONB,
+    scholar_id          BIGINT NOT NULL REFERENCES scholar(scholar_id),
+    year                SMALLINT NOT NULL,
+    treated             BOOLEAN NOT NULL,
+    post                BOOLEAN NOT NULL,
+    outcome_moves       INTEGER,
+    outcome_intl_moves  INTEGER DEFAULT 0,
+    outcome_cn_link     INTEGER DEFAULT 0,
+    outcome_log_works   NUMERIC(10,4),
+    covariates          JSONB,
+    cohort_confidence   TEXT CHECK (cohort_confidence IN ('high','medium','low')),
     PRIMARY KEY (scholar_id, year)
 );
+
+-- 中国背景候选队列的可核查信号；出生国未被算法断言时 cohort_member.birth_country 为 NULL。
+CREATE TABLE cohort_evidence (
+    evidence_id     BIGSERIAL PRIMARY KEY,
+    scholar_id      BIGINT NOT NULL REFERENCES scholar(scholar_id),
+    rule_version    TEXT NOT NULL,
+    signal_code     TEXT NOT NULL CHECK (signal_code IN
+                    ('pinyin_strong','pinyin_weak','gc_primary','gc_secondary',
+                     'gc_share','gc_cv_verified','birth_hint',
+                     'us_2017_primary','us_fallback')),
+    signal_value    TEXT,
+    evidence_detail TEXT,
+    source_table    TEXT,
+    source_key      TEXT NOT NULL DEFAULT '',
+    weight          SMALLINT NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (scholar_id, rule_version, signal_code, source_key)
+);
+
+CREATE TABLE did_estimate (
+    estimate_id           BIGSERIAL PRIMARY KEY,
+    rule_version          TEXT NOT NULL,
+    cohort_rule_version   TEXT NOT NULL,
+    specification         TEXT NOT NULL CHECK (specification IN ('did_2x2','event_study')),
+    outcome               TEXT NOT NULL,
+    coefficient           NUMERIC(12,6),
+    std_error             NUMERIC(12,6),
+    t_stat                NUMERIC(12,6),
+    n_treated             INTEGER,
+    n_control             INTEGER,
+    n_obs                 INTEGER,
+    pretrend_coef         NUMERIC(12,6),
+    parallel_trend_passed BOOLEAN,
+    note                  TEXT,
+    created_at            TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (rule_version, cohort_rule_version, specification, outcome)
+);
+
+CREATE TABLE did_annual_effect (
+    rule_version         TEXT NOT NULL,
+    cohort_rule_version  TEXT NOT NULL,
+    outcome              TEXT NOT NULL,
+    year                 SMALLINT NOT NULL,
+    coefficient          NUMERIC(12,6),
+    std_error            NUMERIC(12,6),
+    t_stat               NUMERIC(12,6),
+    n_treated            INTEGER,
+    n_control            INTEGER,
+    note                 TEXT,
+    created_at           TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (rule_version, cohort_rule_version, outcome, year)
+);
+CREATE INDEX idx_cohort_evidence_scholar ON cohort_evidence(scholar_id, rule_version);
 
 -- ---------- Part 6b: A 轨不可变保护 ----------
 CREATE OR REPLACE FUNCTION reject_a_mutation() RETURNS trigger AS $$

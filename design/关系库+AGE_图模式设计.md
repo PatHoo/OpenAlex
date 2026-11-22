@@ -45,7 +45,7 @@ OpenAlex / ROR / ORCID / Crossref
 
 ## 2. 关系库表结构（PostgreSQL 16）
 
-共 22 张表，分六组（字典、身份、作品、面板、事件证据、日志与分析）。完整可建表脚本见 `schema.sql`。
+共 25 张表，分六组（字典、身份、作品、面板、事件证据、日志与分析）。完整可建表脚本见 `schema.sql`；WP13/WP14 新增表的增量迁移见 `cohort_did_seed.sql`。
 
 ### 2.1 身份与名单（source / identity）
 
@@ -98,8 +98,11 @@ OpenAlex / ROR / ORCID / Crossref
 |---|---|---|
 | `api_request` | `request_id` | 220 条请求：64 条基线（URL/时间戳/状态 200×62、401×1、404×1/sha256/字节数）+ 156 条 Crossref 补查（URL 按 DOI 推导、状态 200×117/429×9/301×4/404×26、`backend_path` 取原表 `raw_path`）；无原始值的字段留空 |
 | `rule_test` | `(test_name, rule_version)` | 19 项规则测试结果，全部 `passed`；原始 JSON 存 `detail`，见 `rule_test_seed.sql` |
-| `cohort_member` | `scholar_id` | "中国出生、现居美国"队列：`birth_evidence`, `determination_method`, `confidence`, `reviewed_by` |
-| `did_panel` | `(scholar_id, year)` | DID 用面板：`treated`, `post`(2018+), `outcome_moves`, `covariates`(JSONB) |
+| `cohort_member` | `scholar_id` | "中国背景、在美"候选队列：`birth_evidence`(JSON 文本), `determination_method`, `confidence`, `reviewed_by`；算法未获外部出生证据时 `birth_country` 为 NULL |
+| `cohort_evidence` | `(scholar_id, rule_version, signal_code, source_key)` | 逐信号审计：拼音姓氏、中国内地/中国香港/中国台湾机构轨迹、外部提示、2017 在美状态及权重 |
+| `did_panel` | `(scholar_id, year)` | DID 面板：`treated`, `post`(2018+), `outcome_moves`/`outcome_intl_moves`/`outcome_cn_link`/`outcome_log_works`, `covariates`(JSONB) |
+| `did_estimate` | `(rule_version, cohort_rule_version, specification, outcome)` | 2x2 DID 系数、标准误、样本量、平行趋势检查与口径备注 |
+| `did_annual_effect` | `(rule_version, cohort_rule_version, outcome, year)` | 事件研究逐年效应（baseline=2017）与年度样本量 |
 
 ---
 
@@ -400,7 +403,7 @@ CREATE (s)-[:AFFILIATED {
 4. **边必须有标签**：创建边时不能省略标签；顶点可多标签，边只能一个标签。
 5. **数值类型**：agtype 中整数与浮点区分，`share=0.6` 要写成 `0.6` 而非 `60`；百分比统一用 0–1 小数存储。
 6. **A 轨不可变**：触发器是最后防线，真正保障来自"B 只 INSERT 不 UPDATE"的应用约定与代码审查。本仓库目前没有应用层代码，因此该约束实际上只由数据库触发器承担；全量实施时必须补上应用层校验。
-7. **出生国不确定**：`birth_country_hint` 不是可靠字段。"中国出生"筛查必须走 `cohort_member` 的人工复核列，否则 DID 的处理组定义会被质疑。
+7. **出生国不确定**：`birth_country_hint` 不是可靠字段。WP13 只生成"中国背景候选"：`high` 可作为 DID 处理组代理，但 `birth_country` 除外部证据外保持 NULL；正式声称"中国出生"必须走 `cohort_member.reviewed_by`/`reviewed_at` 人工复核，否则 DID 的处理组定义会被质疑。
 
 ---
 

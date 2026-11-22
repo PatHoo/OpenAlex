@@ -4,7 +4,7 @@
 适用环境：客户机器已安装 Docker 与 WSL Ubuntu（AGE 可正常使用）
 目标：起 PostgreSQL 16 + PostGIS + Apache AGE，导入三人真实小样，跑通关系库查询与图查询
 配套文件：
-- `schema.sql` — 22 张表 + 视图 + 触发器
+- `schema.sql` — 25 张表 + 视图 + 触发器
 - `三人小样_seed.sql` — 从 1030 版 Excel 真实抽取的 9 类数据
 - `三人小样_AGE投影.sql` — AGE 图投影 + 5 条验证查询
 - `verify_poc.sql` — 导入后一致性/完整性核对与阈值演示
@@ -415,7 +415,7 @@ design/
 ├── 关系库+AGE_图模式设计.md          # 完整设计与 C1–C5 双模型对照
 ├── 三人小样原型_部署文档.md          # 通用版（本机无 Docker/WSL 时）
 ├── 三人小样原型_部署文档_Docker_WSL版.md  # 本文档
-├── schema.sql                        # 22 张表 + 视图 + 触发器
+├── schema.sql                        # 25 张表 + 视图 + 触发器
 ├── 三人小样_seed.sql                  # 真实抽取数据（含 3 条源名单行）
 ├── 三人小样_AGE投影.sql               # 图投影 + 5 条验证查询
 └── verify_poc.sql                    # 导入后一致性/完整性核对与阈值演示
