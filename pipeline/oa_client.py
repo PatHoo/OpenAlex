@@ -126,8 +126,14 @@ class OpenAlexClient:
                     except Exception:
                         error_code = None
                     if status == 429:
-                        retry_after = resp.headers.get("Retry-After")
-                        wait = float(retry_after) if retry_after else BACKOFF_BASE ** (attempt + 1)
+                        if error_code == "daily_budget":
+                            # 额度耗尽时 OpenAlex 的 Retry-After 指向次日重置（约 22 小时）。
+                            # 绝不能按它长睡挂起进程：wait=0 跳过 sleep，直接抛异常干净暂停，
+                            # 由用户明天续跑。
+                            wait = 0.0
+                        else:
+                            retry_after = resp.headers.get("Retry-After")
+                            wait = float(retry_after) if retry_after else BACKOFF_BASE ** (attempt + 1)
                     elif status == 403 and error_code == "key_not_activated":
                         # 配置错误，重试无意义
                         self._log(
@@ -166,14 +172,18 @@ class OpenAlexClient:
                             "payload": {"attempt": attempt, "retry_in": wait, "has_key": bool(self.key)},
                         }
                     )
+                    # 额度耗尽（wait=0）立即抛异常，不 sleep、不重试；
+                    # 其他 429 走正常退避重试，重试耗尽后再抛。
+                    if status == 429 and error_code == "daily_budget":
+                        raise APIBudgetExhausted("OpenAlex 当日额度已耗尽（daily_budget）")
                     if attempt < MAX_RETRIES:
                         time.sleep(wait)
                         continue
-                    # 429 重试耗尽：额度已尽，抛异常让主循环停在当前学者，
+                    # 429 重试耗尽：抛异常让主循环停在当前学者，
                     # 避免把只抓到一半的 works 误标为 wp2 完成（下次续跑会补）
                     if status == 429:
                         raise APIBudgetExhausted(
-                            "OpenAlex 429 重试耗尽，可能已耗尽当日额度或触发速率限制"
+                            "OpenAlex 429 重试耗尽，可能已触发速率限制"
                         )
                 else:
                     # 4xx 非限流（如 404），记录后返回 None，不重试
