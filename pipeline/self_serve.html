@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>学者作品自助抓取工具</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --line: #e5e7eb;
+    --text: #1f2937; --muted: #6b7280; --accent: #2563eb; --accent-h: #1d4ed8;
+    --ok: #16a34a; --warn: #d97706; --err: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+         background: var(--bg); color: var(--text); line-height: 1.6; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 20px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+          padding: 18px 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input[type=text], textarea, select {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 7px;
+    font-size: 14px; font-family: inherit; }
+  textarea { min-height: 130px; resize: vertical; }
+  button { background: var(--accent); color: #fff; border: none; border-radius: 7px;
+           padding: 9px 18px; font-size: 14px; cursor: pointer; }
+  button:hover { background: var(--accent-h); }
+  button.secondary { background: #fff; color: var(--text); border: 1px solid var(--line); }
+  button:disabled { background: #9ca3af; cursor: not-allowed; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row > * { flex: 1 1 auto; }
+  .row > button { flex: 0 0 auto; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tabs button { background: #fff; color: var(--text); border: 1px solid var(--line); }
+  .tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .stat { background: #f9fafb; border: 1px solid var(--line); border-radius: 8px; padding: 12px; text-align: center; }
+  .stat .n { font-size: 22px; font-weight: 700; }
+  .stat .l { font-size: 12px; color: var(--muted); }
+  .bar { height: 10px; background: #eef0f3; border-radius: 6px; overflow: hidden; margin: 14px 0; }
+  .bar > div { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+  .status { font-size: 14px; font-weight: 600; }
+  .status.idle { color: var(--muted); } .status.running { color: var(--accent); }
+  .status.paused { color: var(--warn); } .status.done { color: var(--ok); }
+  .status.error { color: var(--err); }
+  .msg { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  .danger { color: var(--err); }
+  .ok { color: var(--ok); }
+  .small { font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>学者作品自助抓取工具</h1>
+  <p class="sub">基于 OpenAlex 公开 API。您自己申请 key、自己抓取，数据与额度都归您，工具只固定抓取方式和路径。</p>
+
+  <!-- 1. API key -->
+  <div class="card">
+    <h2>① 设置 OpenAlex API Key</h2>
+    <div class="row">
+      <input type="text" id="key" placeholder="粘贴您的 API key" style="flex:3">
+      <button id="btn-key">保存 key</button>
+    </div>
+    <div class="hint">
+      免费 key 每天 $1 额度（约 1 万次检索请求）、30 请求/秒。
+      去 <a href="https://openalex.org/signup" target="_blank">openalex.org/signup</a> 注册，
+      再到 <a href="https://openalex.org/settings/api-key" target="_blank">设置页</a> 复制 key，并到邮箱点激活链接。
+      <span id="key-status" class="muted"></span>
+    </div>
+  </div>
+
+  <!-- 2. 名单 -->
+  <div class="card">
+    <h2>② 选择学者名单</h2>
+    <div class="tabs">
+      <button id="tab-preset" class="active">预置名单（105,027 人）</button>
+      <button id="tab-paste">自传名单</button>
+    </div>
+
+    <div id="panel-preset">
+      <div class="row">
+        <div>
+          <label>起始序号（从 1 起）</label>
+          <input type="text" id="offset" value="1">
+        </div>
+        <div>
+          <label>人数</label>
+          <input type="text" id="limit" value="10">
+        </div>
+        <button id="btn-load-preset">加载名单</button>
+      </div>
+      <div class="hint">预置名单按 Elsevier 2017 高被引排名升序（引用最高者优先）。</div>
+    </div>
+
+    <div id="panel-paste" style="display:none">
+      <label>粘贴姓名（每行一个，或 CSV 含 name/authfull 列）</label>
+      <textarea id="paste" placeholder="Zhang, Wei&#10;Li, Hong&#10;Wang, Xiaoming"></textarea>
+      <button id="btn-load-paste">加载名单</button>
+    </div>
+
+    <div id="list-status" class="msg"></div>
+  </div>
+
+  <!-- 3. 抓取 -->
+  <div class="card">
+    <h2>③ 抓取控制</h2>
+    <div class="row">
+      <div>
+        <label>每人候选数（WP1）</label>
+        <input type="text" id="topn" value="5">
+      </div>
+      <div>
+        <label>每人最多作品数（留空=全部）</label>
+        <input type="text" id="maxworks" placeholder="留空抓全部">
+      </div>
+      <button id="btn-run">开始抓取</button>
+      <button id="btn-stop" class="secondary">停止</button>
+    </div>
+
+    <div class="bar"><div id="bar"></div></div>
+    <div class="grid">
+      <div class="stat"><div class="n" id="s-done">0</div><div class="l">已完成</div></div>
+      <div class="stat"><div class="n" id="s-total">0</div><div class="l">总数</div></div>
+      <div class="stat"><div class="n" id="s-req">0</div><div class="l">请求数</div></div>
+      <div class="stat"><div class="n" id="s-works">0</div><div class="l">作品数</div></div>
+    </div>
+    <div class="status idle" id="s-status">空闲</div>
+    <div class="msg" id="s-msg"></div>
+  </div>
+
+  <!-- 4. 结果 -->
+  <div class="card">
+    <h2>④ 结果与导出</h2>
+    <div class="row">
+      <button id="btn-export-works" class="secondary">导出作品 works.jsonl</button>
+      <button id="btn-export-cand" class="secondary">导出候选 candidates.jsonl</button>
+      <button id="btn-export-req" class="secondary">导出请求留痕 requests.jsonl</button>
+      <button id="btn-export-cp" class="secondary">导出断点 checkpoint.json</button>
+    </div>
+    <div class="hint">数据落盘于本机 <code>pipeline/data/self_serve/</code>，导出即下载。</div>
+    <table id="result-table" style="margin-top:12px; display:none">
+      <thead><tr><th>序号</th><th>姓名</th><th>作品数</th><th>候选数</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API = "/api";
+let pollTimer = null;
+
+function $(id){ return document.getElementById(id); }
+
+function post(url, body){
+  return fetch(API+url, {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(body||{})
+  }).then(r=>r.json());
+}
+
+// 切换名单 tab
+$("tab-preset").onclick = ()=>{ $("tab-preset").classList.add("active"); $("tab-paste").classList.remove("active");
+  $("panel-preset").style.display="block"; $("panel-paste").style.display="none"; };
+$("tab-paste").onclick = ()=>{ $("tab-paste").classList.add("active"); $("tab-preset").classList.remove("active");
+  $("panel-paste").style.display="block"; $("panel-preset").style.display="none"; };
+
+// 设置 key
+$("btn-key").onclick = async ()=>{
+  const r = await post("/key", {key: $("key").value, persist:false});
+  $("key-status").textContent = r.key_set ? "✅ key 已设置（仅本次会话）" : "❌ 未设置";
+};
+
+// 加载名单
+$("btn-load-preset").onclick = async ()=>{
+  const r = await post("/list", {mode:"preset", limit:parseInt($("limit").value||"10"), offset:parseInt($("offset").value||"1")-1});
+  $("list-status").textContent = r.ok ? `✅ 已加载 ${r.count} 人` : `❌ ${r.error}`;
+};
+$("btn-load-paste").onclick = async ()=>{
+  const r = await post("/list", {mode:"paste", text:$("paste").value});
+  $("list-status").textContent = r.ok ? `✅ 已加载 ${r.count} 人` : `❌ ${r.error}`;
+};
+
+// 抓取
+$("btn-run").onclick = async ()=>{
+  const topn = parseInt($("topn").value||"5");
+  const mw = $("maxworks").value.trim();
+  const r = await post("/run", {top_n:topn, max_works: mw?parseInt(mw):null});
+  if(r.error){ alert(r.error); return; }
+  startPoll();
+};
+$("btn-stop").onclick = async ()=>{ await post("/stop"); };
+
+function startPoll(){
+  if(pollTimer) return;
+  pollTimer = setInterval(refresh, 1200);
+  refresh();
+}
+async function refresh(){
+  const r = await fetch(API+"/state").then(x=>x.json());
+  const s = r.state;
+  $("s-done").textContent = s.done;
+  $("s-total").textContent = s.total;
+  $("s-req").textContent = s.requests;
+  $("s-works").textContent = s.works;
+  $("s-status").textContent = {idle:"空闲",running:"抓取中…",paused:"已暂停",done:"完成",error:"出错"}[s.status]||s.status;
+  $("s-status").className = "status "+s.status;
+  $("s-msg").textContent = s.message||"";
+  const pct = s.total ? Math.round(100*s.done/s.total) : 0;
+  $("bar").style.width = pct+"%";
+  if(s.status==="done" || s.status==="paused" || s.status==="error"){
+    clearInterval(pollTimer); pollTimer=null;
+  }
+}
+
+function dl(kind){
+  window.location.href = API+"/export?kind="+kind;
+}
+$("btn-export-works").onclick = ()=>dl("works");
+$("btn-export-cand").onclick = ()=>dl("candidates");
+$("btn-export-req").onclick = ()=>dl("requests");
+$("btn-export-cp").onclick = ()=>dl("checkpoint");
+
+refresh();
+</script>
+</body>
+</html>

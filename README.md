@@ -84,8 +84,13 @@ OpenAlex/
 │   ├── wp15_external_evidence.py          # WP15：外部出生国证据（公开来源逐条留痕）+ 定案
 │   ├── wp16_did_robust.py                 # WP16：学者层聚类稳健 SE + 平行趋势联合 F 检验
 │   ├── dbutil.py                         # psql 封装（检查退出码）
+│   ├── fetch_service.py                  # 客户自助抓取服务层（key 内存化、断点、进度状态机）
+│   ├── fetch_server.py                   # 本地网页服务端（127.0.0.1，标准库 http.server）
+│   ├── self_serve.html                   # 客户自助抓取前端（单页，填 key→选名单→抓取→导出）
+│   ├── self_serve_README.md              # 客户使用说明（申请 key、启动、抓取口径、成本估算）
 │   ├── tests/test_pipeline_safety.py     # P0 静默丢数回归测试（7 项）
 │   ├── tests/test_wp11_classification.py # 8.5 分类口径回归测试（6 项）
+│   ├── tests/test_fetch_service.py       # 自助抓取服务层测试（8 项：名单解析/进度/预置子集）
 │   ├── export_requests_sql.py            # 请求留痕导入数据库
 │   └── data/batch_001/                   # 试跑产物（gitignored，不上传）
 └── output/                           # 分析与交付物
