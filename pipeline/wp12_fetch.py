@@ -24,6 +24,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config import PER_PAGE, batch_dir  # noqa: E402
 from oa_client import APIBudgetExhausted, OpenAlexClient  # noqa: E402
 
+
+class APIFetchFailed(RuntimeError):
+    """请求失败（网络重试耗尽 / 非限流 4xx / key 未激活）。
+
+    与 APIBudgetExhausted 同样必须中止当前学者：绝不能把失败当作
+    "翻页正常结束"或"无候选"，否则会把半截/空数据标成完成，续跑直接跳过。
+    """
+
+
 # 只取需要的字段，降低响应体与额度消耗
 AUTHOR_SELECT = "id,display_name,orcid,works_count,cited_by_count,last_known_institutions,ids"
 WORK_SELECT = (
@@ -69,6 +78,9 @@ def wp1_search(client: OpenAlexClient, src: dict, top_n: int = 5) -> list[dict]:
         purpose="wp1_author_search",
         scholar_src_id=src["src_id"],
     )
+    if data is None:
+        # 请求失败 != 查无此人。抛异常让主循环停在当前学者，不写空候选、不标 wp1。
+        raise APIFetchFailed(f"src_id={src['src_id']} 作者检索请求失败")
     if not data:
         return []
     out = []
@@ -109,8 +121,10 @@ def wp2_fetch_works(client: OpenAlexClient, src: dict, author_id: str, max_works
             purpose="wp2_works",
             scholar_src_id=src["src_id"],
         )
-        if not data:
-            break
+        if data is None:
+            # 请求失败 != 翻页结束。否则半截 works 会被落盘并把学者标成完成，
+            # 续跑跳过该学者，永久少数据。让调用方停在当前学者，下次从头重抓。
+            raise APIFetchFailed(f"src_id={src['src_id']} 第 {page + 1} 页作品请求失败")
         results = data.get("results", [])
         for w in results:
             works.append(
@@ -166,14 +180,20 @@ def main() -> None:
     cand_path = d / "candidates.jsonl"
     works_path = d / "works.jsonl"
 
-    exhausted = False
+    halted: str | None = None
     for src in todo:
         sid = str(src["src_id"])
         state = cp.setdefault(sid, {"wp1": False, "wp2": False, "works_count": 0})
 
         # ---- WP1 ----
         if args.stage in ("wp1", "all") and not state["wp1"]:
-            cands = wp1_search(client, src, args.top_n)
+            try:
+                cands = wp1_search(client, src, args.top_n)
+            except (APIBudgetExhausted, APIFetchFailed) as e:
+                print(f"[STOP] src_id={sid} WP1 中止：{e}")
+                print("[STOP] 当前学者未标记完成，未写入空候选；修复后续跑即可")
+                halted = str(e)
+                break
             append_jsonl(cand_path, [{"src_id": src["src_id"], "candidates": cands,
                                       "searched_at": datetime.now(timezone.utc).isoformat()}])
             state["wp1"] = True
@@ -198,15 +218,15 @@ def main() -> None:
                 state["wp2"] = True
                 save_checkpoint(d / "checkpoint.json", cp)
                 continue
-            # 额度耗尽时 wp2_fetch_works 会抛异常：此时不写入半截 results，
-            # 也不标记 wp2 完成，下次续跑从该学者重抓（代码内对 requests.jsonl
-            # 已成功页有留痕，但不会把不完整数据落进 works.jsonl）
+            # 额度耗尽或请求失败时 wp2_fetch_works 会抛异常：此时不写入半截 results，
+            # 也不标记 wp2 完成，下次续跑从该学者重抓（requests.jsonl 对成功页有留痕，
+            # 但不会把不完整数据落进 works.jsonl）
             try:
                 works = wp2_fetch_works(client, src, aid, args.max_works)
-            except APIBudgetExhausted as e:
-                print(f"[STOP] src_id={sid} 遇额度/速率上限：{e}")
-                print("[STOP] 当前学者未标记完成，未写入半截作品；进度已保存，重置后续跑即可")
-                exhausted = True
+            except (APIBudgetExhausted, APIFetchFailed) as e:
+                print(f"[STOP] src_id={sid} WP2 中止：{e}")
+                print("[STOP] 当前学者未标记完成，未写入半截作品；修复后续跑即可")
+                halted = str(e)
                 break
             append_jsonl(works_path, works)
             state["wp2"] = True
@@ -218,8 +238,8 @@ def main() -> None:
             print(f"[WP2] src_id={sid} 已完成（{state['works_count']} works），跳过")
 
     done = sum(1 for s in todo if cp.get(str(s["src_id"]), {}).get("wp2"))
-    if exhausted:
-        print(f"[PAUSED] 因额度/速率上限暂停：{done}/{len(todo)} 学者完成；请求总数 {client.request_count}")
+    if halted:
+        print(f"[PAUSED] 中止原因：{halted}；{done}/{len(todo)} 学者完成；请求总数 {client.request_count}")
     else:
         print(f"[DONE] {done}/{len(todo)} 学者完成；请求总数 {client.request_count}；留痕 {req_log}")
 

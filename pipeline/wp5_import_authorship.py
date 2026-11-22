@@ -17,30 +17,35 @@ import argparse
 import csv
 import json
 import os
+import shlex
 import subprocess
+import sys
 import time
 from pathlib import Path
 
 DATA = Path(__file__).parent / "data" / "batch_001"
-SCHOLAR_MAP = DATA / "_scholar_map.txt"   # src_id|external_id|scholar_id
-WORK_MAP = DATA / "_work_map.txt"         # work_id|openalex_url
 
 
-def load_maps():
+def load_maps(data_dir: Path | None = None):
+    """读取映射表；路径从 data_dir 推导，便于在临时目录里测试。"""
+    data_dir = data_dir or DATA
     scholar = {}
-    for line in open(SCHOLAR_MAP, encoding="utf-8"):
-        p = line.rstrip("\n").split("|")
-        if len(p) == 3:
-            scholar[int(p[0])] = (p[1], int(p[2]))  # oaid, scholar_id
+    with (data_dir / "_scholar_map.txt").open(encoding="utf-8") as f:
+        for line in f:
+            p = line.rstrip("\n").split("|")
+            if len(p) == 3:
+                scholar[int(p[0])] = (p[1], int(p[2]))  # oaid, scholar_id
     work = {}
-    for line in open(WORK_MAP, encoding="utf-8"):
-        p = line.rstrip("\n").split("|")
-        if len(p) == 2:
-            work[p[1]] = int(p[0])  # openalex_url -> work_id
+    with (data_dir / "_work_map.txt").open(encoding="utf-8") as f:
+        for line in f:
+            p = line.rstrip("\n").split("|")
+            if len(p) == 2:
+                work[p[1]] = int(p[0])  # openalex_url -> work_id
     src_name = {}
-    for line in open(DATA / "source_scholar.jsonl", encoding="utf-8"):
-        d = json.loads(line)
-        src_name[d["src_id"]] = d.get("authfull") or ""
+    with (data_dir / "source_scholar.jsonl").open(encoding="utf-8") as f:
+        for line in f:
+            d = json.loads(line)
+            src_name[d["src_id"]] = d.get("authfull") or ""
     return scholar, work, src_name
 
 
@@ -74,15 +79,19 @@ def main():
     scholar, work, src_names = load_maps()
     print(f"映射: scholar={len(scholar)} work={len(work)} src_names={len(src_names)}")
 
-    staging = DATA / "_authorship_stage.csv"
+    # dry-run 写独立 staging，避免预览数据混入正式批次
+    staging = DATA / ("_authorship_stage_dryrun.csv" if args.dry_run else "_authorship_stage.csv")
     state_path = DATA / "authorship_progress.json"
     state = {"offset": 0, "scanned": 0, "rows": 0, "skip_unsolved": 0,
              "skip_no_auth": 0, "skip_no_work": 0}
     if state_path.exists() and not args.limit:
-        state = json.load(open(state_path))
+        with state_path.open(encoding="utf-8") as f:
+            state = json.load(f)
 
     start = args.offset or state["offset"]
-    out = open(staging, "a", encoding="utf-8", newline="")
+    # 正式模式追加：COPY 失败时保留上次 staging，修复后重跑同批不会丢数
+    # （ON CONFLICT 保证重复行不会入库）
+    out = open(staging, "w" if args.dry_run else "a", encoding="utf-8", newline="")
     writer = csv.writer(out, quoting=csv.QUOTE_MINIMAL)
     stat = {"total": 0, "hit": 0, "hit_by_name": 0, "skip_unsolved": 0,
             "skip_no_auth": 0, "skip_no_work": 0}
@@ -145,12 +154,9 @@ def main():
         print("DRY RUN, staging 文件已写但未入库")
         return
 
-    state["offset"] = start + stat["total"]
-    state["rows"] += stat["hit"]
-    state["skip_unsolved"] += stat["skip_unsolved"]
-    json.dump(state, open(state_path, "w"))
-
     # COPY staging -> authorship（一次批量）
+    # 关键顺序：先入库成功，再推进 offset、清空 staging。
+    # 失败时两者都保持原样，重跑同一批即可补数，避免永久丢批。
     wsl_stage = "/mnt/c" + str(staging).replace("C:\\", "/").replace("\\", "/")
     sql = f"""
 BEGIN;
@@ -163,17 +169,33 @@ FROM auth_stage
 ON CONFLICT (work_id,scholar_id) DO NOTHING;
 COMMIT;
 """
-    sqlfile = Path(os.environ.get("TEMP", "/tmp")) / "wp5_load.sql"
+    # 文件名带 PID，避免并发跑批互相覆盖 SQL
+    sqlfile = Path(os.environ.get("TEMP", "/tmp")) / f"wp5_load_{os.getpid()}.sql"
     sqlfile.write_text(sql, encoding="utf-8")
     wsl_sql = "/mnt/c" + str(sqlfile).replace("C:\\", "/").replace("\\", "/")
+    # 不用 `| tail`：管道退出码是 tail 的，会把 psql 失败吞成成功
     cmd = ["wsl", "-e", "bash", "-c",
-           f'PASS=$(cat ~/.openalex_db_pass); PGPASSWORD="$PASS" psql -h 127.0.0.1 -p 5432 -U postgres -d openalex -v ON_ERROR_STOP=1 -f {wsl_sql} 2>&1 | tail -15']
+           f'PASS=$(cat ~/.openalex_db_pass); PGPASSWORD="$PASS" psql -h 127.0.0.1 -p 5432 -U postgres -d openalex -v ON_ERROR_STOP=1 -f {shlex.quote(wsl_sql)}']
     r = subprocess.run(cmd, capture_output=True, text=True)
     print("=== psql ===")
-    print(r.stdout or r.stderr)
-    # 清空 staging 供下批
-    out = open(staging, "w")
-    out.close()
+    print((r.stdout or "") + (r.stderr or ""))
+    if r.returncode != 0:
+        print(f"[FATAL] psql 失败（退出码 {r.returncode}）：offset 未推进，staging 保留在 {staging}",
+              file=sys.stderr)
+        print("[FATAL] 修复后用相同参数重跑同一批即可补数", file=sys.stderr)
+        raise SystemExit(1)
+
+    # 入库成功后才推进状态并清空 staging；状态原子写，避免中途写坏
+    # --limit 是一次性测试批，不能污染正式进度文件
+    if not args.limit:
+        state["offset"] = start + stat["total"]
+        state["rows"] += stat["hit"]
+        state["skip_unsolved"] += stat["skip_unsolved"]
+        tmp_state = state_path.with_suffix(".tmp")
+        tmp_state.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp_state.replace(state_path)
+    staging.write_text("", encoding="utf-8")
+    print(f"[OK] 入库成功：offset -> {start + stat['total']}，staging 已清空")
 
 
 if __name__ == "__main__":

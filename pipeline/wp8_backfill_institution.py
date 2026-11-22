@@ -86,14 +86,18 @@ def wsl_path(p: Path) -> str:
 
 
 def run_psql(sql: str, tail: int = 40) -> str:
-    f = TMP / "wp8.sql"
+    f = TMP / f"wp8_{os.getpid()}.sql"
     f.write_text(sql, encoding="utf-8")
+    # 不用 `| tail`：管道退出码是 tail 的，会把 psql 失败吞成成功
     cmd = ["wsl", "-e", "bash", "-c",
            f'PASS=$(cat ~/.openalex_db_pass); PGPASSWORD="$PASS" psql -h 127.0.0.1 '
-           f'-p 5432 -U postgres -d openalex -v ON_ERROR_STOP=1 -f {wsl_path(f)} 2>&1 | tail -{tail}']
+           f'-p 5432 -U postgres -d openalex -v ON_ERROR_STOP=1 -f {wsl_path(f)}']
     r = subprocess.run(cmd, capture_output=True, text=True)
-    out = r.stdout or r.stderr
-    print(out)
+    out = (r.stdout or "") + (r.stderr or "")
+    lines = out.splitlines()
+    print("\n".join(lines[-tail:]) if len(lines) > tail else out)
+    if r.returncode != 0:
+        raise RuntimeError(f"psql 失败（退出码 {r.returncode}）：\n{out[-2000:]}")
     return out
 
 
