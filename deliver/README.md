@@ -16,7 +16,7 @@
 bash start.sh
 ```
 
-> 两个脚本都会自动创建 `.venv` 虚拟环境、装依赖、启动服务并打开浏览器，全程无需手动 `pip install`。
+> 两个脚本都会**自动校验并创建** `.venv` 虚拟环境（缺依赖或"空壳" venv 会自动重建）、装依赖、启动服务并打开浏览器，全程无需手动 `pip install`。依赖已就绪时秒开。
 
 浏览器打开 **http://127.0.0.1:8765**（脚本会自动打开），按页面四步走：
 
@@ -109,6 +109,10 @@ deliver/
 **Q：`pip install` 报 `externally-managed-environment`（PEP 668）？**
 
 这是 Linux 发行版（Debian/Ubuntu，含 WSL）对系统 Python 的保护，不允许直接装到系统目录。**不要用 `--break-system-packages` 强装**，直接运行 `bash start.sh` 即可——脚本会自动创建独立的 `.venv` 虚拟环境，不影响系统。
+
+**Q：启动时报 `No module named 'flask'`？**
+
+说明 `.venv` 是"空壳"（软链指向了系统 Python、依赖没装进去）。重新运行 `bash start.sh`（或双击 bat），脚本会自动检测到 flask 缺失并**重建 venv + 补装依赖**。不要手动 `python app.py`——务必通过启动脚本走 venv 内的 Python。
 
 **Q：装依赖时提示找不到 flask / 下载慢？**
 
