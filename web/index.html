@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OpenAlex 学者作品自助抓取</title>
+<script>try{document.documentElement.setAttribute("data-theme", localStorage.getItem("oa_theme")||"dark");}catch(e){document.documentElement.setAttribute("data-theme","dark");}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -287,7 +288,7 @@ const $ = id => document.getElementById(id);
 const STATUS_TEXT = { idle:"空闲", running:"抓取中", paused:"已暂停", done:"完成", error:"出错" };
 const R = 56, CIRC = 2 * Math.PI * R;
 
-let theme = localStorage.getItem("oa_theme") || "light";
+let theme = localStorage.getItem("oa_theme") || "dark";
 let apiKey = localStorage.getItem("oa_key") || "";
 let roster = [];                 // [{src_id, authfull}]
 let runner = { running:false, stop:false };
@@ -299,9 +300,10 @@ let checkpoint = {};             // {src_id: {wp1,w2,works_count}}
 
 /* ============ 主题 ============ */
 function applyTheme(t){ document.documentElement.setAttribute("data-theme", t);
-  localStorage.setItem("oa_theme", t); $("btn-theme").textContent = t==="dark"?"☀️":"🌓"; }
+  localStorage.setItem("oa_theme", t); $("btn-theme").textContent = t==="dark"?"☀️":"🌙";
+  $("btn-theme").title = t==="dark"?"切换到亮色":"切换到暗色"; }
 applyTheme(theme);
-$("btn-theme").onclick = ()=>applyTheme(theme==="dark"?"light":"dark");
+$("btn-theme").onclick = ()=>{ theme = theme==="dark"?"light":"dark"; applyTheme(theme); };
 
 /* ============ 工具 ============ */
 function toast(msg, type=""){ const t=$("toast"); t.textContent=msg; t.className="toast show "+type;
