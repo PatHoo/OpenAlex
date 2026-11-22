@@ -500,6 +500,28 @@ async function oaGet(path, params){
 }
 
 /* ============ WP1 / WP2 抓取逻辑 ============ */
+/* 名字匹配评分：从候选中挑出最匹配输入名字的，避免张冠李戴（重名/相似名） */
+function normalizeName(s){
+  return String(s||"").toLowerCase()
+    .replace(/[，,]/g," ")          // 逗号转空格
+    .replace(/[^a-z\u4e00-\u9fa5 ]/g,"")  // 去标点
+    .split(/\s+/).filter(Boolean).sort().join(" ");
+}
+function nameScore(input, candidate){
+  const a = normalizeName(input), b = normalizeName(candidate);
+  if(!a || !b) return 0;
+  if(a === b) return 100;                          // 完全一致（忽略顺序/大小写/逗号）
+  const aw = a.split(" "), bw = b.split(" ");
+  const common = aw.filter(w=>bw.includes(w)).length;
+  const coverage = common / Math.max(aw.length, bw.length);
+  return Math.round(coverage * 80);                 // 部分匹配 0~80
+}
+function pickBestCandidate(inputName, candidates){
+  if(!candidates || !candidates.length) return null;
+  const scored = candidates.map(c=>({ c, s:nameScore(inputName, c.display_name) }));
+  scored.sort((x,y)=> y.s - x.s);
+  return scored[0];                                 // 返回 {c, s}
+}
 async function wp1Search(src, topN){
   const data = await oaGet("authors", { search:src.authfull, "per-page":topN, select:AUTHOR_SELECT });
   if(data===null) throw new Error(`src_id=${src.src_id} 作者检索请求失败`);
@@ -596,11 +618,25 @@ async function runFetch(topN, maxWorks){
     // WP2
     if(cp.wp1 && !cp.wp2){
       const cands = candidates.filter(c=>c.src_id===src.src_id);
-      const top = cands.length && cands[0].candidates.length ? cands[0].candidates[0] : {};
-      const aid = top.author_id;
+      const candList = cands.length ? cands[0].candidates : [];
+      // 名字匹配选最佳候选，而非盲取第一名（避免重名/相似名张冠李戴）
+      const best = pickBestCandidate(src.authfull, candList);
+      const matched = best && best.s >= 60;   // 匹配度阈值：>=60 才认定身份
+      const aid = matched ? best.c.author_id : null;
       if(!aid){
-        cp.wp2 = true; cp.works_count = 0; saveState();
+        if(best && best.s > 0){
+          addLog("warn",`src_id=${src.src_id} "${src.authfull}" 未找到精确匹配，最接近的是 "${best.c.display_name}"（匹配度 ${best.s}%），已跳过`);
+        } else if(candList.length){
+          addLog("warn",`src_id=${src.src_id} "${src.authfull}" 无匹配候选，已跳过`);
+        } else {
+          addLog("warn",`src_id=${src.src_id} "${src.authfull}" 无检索结果，已跳过`);
+        }
+        cp.wp2 = true; cp.works_count = 0; cp.skipped = true; saveState();
       } else {
+        if(best.s < 100){
+          addLog("warn",`src_id=${src.src_id} 匹配到 "${best.c.display_name}"（匹配度 ${best.s}%），继续抓取`);
+        }
+        cp.matched_name = best.c.display_name;
         try{
           const wks = await wp2FetchWorks(src, aid, maxWorks);
           works.push(...wks);
@@ -647,7 +683,12 @@ function renderResults(){
   const tbody=tb.querySelector("tbody");
   tbody.innerHTML = roster.map(s=>{
     const cp = checkpoint[String(s.src_id)] || {};
-    return `<tr><td>${s.src_id}</td><td>${s.authfull}</td><td>${cp.works_count||0}</td><td>${cp.candidates||0}</td></tr>`;
+    if(cp.skipped){
+      return `<tr><td>${s.src_id}</td><td>${s.authfull}</td><td colspan="2" style="color:var(--muted)">⚠️ 未匹配，已跳过</td></tr>`;
+    }
+    const mname = cp.matched_name && cp.matched_name !== s.authfull
+      ? `<span style="color:var(--muted);font-size:12px">→ ${cp.matched_name}</span>` : "";
+    return `<tr><td>${s.src_id}</td><td>${s.authfull} ${mname}</td><td>${cp.works_count||0}</td><td>${cp.candidates||0}</td></tr>`;
   }).join("");
 }
 
