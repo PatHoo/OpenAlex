@@ -54,6 +54,7 @@ export OPENALEX_API_KEY='你的key'
 - `source_row` = 数据序号（不含表头，从 1 起）
 - `src_id` = Excel 实际行号（含表头，从 2 起）= `source_row + 1`
 - 已验证：Becke 17/16、Perdew 18/17、Newman 29/28 与种子库完全一致；导入用 `ON CONFLICT` 幂等。
+- **对外展示 / 排序 / 给甲方看编号统一用 `source_row`（从 1 起连续）**；`src_id` 仅作内部主键与 Excel 行号对照，不再另建从 1 起的编号（2026-11-22 已确认，勿改回）。
 
 ## 工作包总览
 
