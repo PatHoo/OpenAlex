@@ -39,8 +39,8 @@ except Exception:  # 防御：即使 import 失败也能独立运行
         pass
 
 
-# 预置名单：project 根 reference/Table-S1-career-2017.xlsx，含 105,026 名学者
-PRESET_XLSX = Path(__file__).resolve().parent.parent / "reference" / "Table-S1-career-2017.xlsx"
+# 预置名单：交付包 preset/Table-S1-career-2017.xlsx，含 105,026 名学者
+from settings import PRESET_XLSX  # noqa: E402
 
 
 @dataclass

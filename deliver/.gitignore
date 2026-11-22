@@ -1,0 +1,14 @@
+# 抓取结果与运行产物（客户数据，不入库）
+data/
+*.jsonl
+*.json
+
+# 可选本地缓存（用户勾选"保存 key"时生成）
+.self_serve_key
+
+# Python
+__pycache__/
+*.pyc
+
+# 虚拟环境
+.venv/

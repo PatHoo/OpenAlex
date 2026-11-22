@@ -1,0 +1,5 @@
+# 强制 shell 脚本保持 LF 行尾，避免 Windows checkout 转 CRLF 导致 WSL 报 \r 错误
+*.sh text eol=lf
+
+# 其余文本文件跟随系统默认（autocrlf）
+* text=auto
