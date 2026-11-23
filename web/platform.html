@@ -6,24 +6,24 @@
 <title>OpenAlex 科研分析平台 · 第二期 DEMO</title>
 <style>
   :root{
-    --bg:#f5f7fb; --card:#ffffff; --ink:#1f2937; --muted:#64748b; --line:#e2e8f0;
-    --accent:#2563eb; --accent-soft:#eff6ff; --ok:#047857; --ok-soft:#ecfdf5;
-    --warn:#b45309; --warn-soft:#fffbeb; --red:#b91c1c; --red-soft:#fef2f2;
-    --shadow:0 1px 3px rgba(15,23,42,.08),0 8px 24px rgba(15,23,42,.04);
+    --bg:#0d1117; --card:#161b22; --ink:#e6edf3; --muted:#8b949e; --line:#30363d;
+    --accent:#58a6ff; --accent-soft:rgba(56,139,253,.16); --ok:#3fb950; --ok-soft:rgba(63,185,80,.16);
+    --warn:#d29922; --warn-soft:rgba(210,153,34,.16); --red:#f85149; --red-soft:rgba(248,81,73,.16);
+    --shadow:0 1px 3px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.22);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
   a{color:var(--accent);text-decoration:none}
-  header{background:#fff;border-bottom:1px solid var(--line);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  header{background:var(--card);border-bottom:1px solid var(--line);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
   header h1{font-size:20px;margin:0;letter-spacing:.2px}
   header .sub{font-size:12px;color:var(--muted);margin-top:2px}
   header .actions{display:flex;gap:8px;align-items:center}
-  button,.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;transition:.15s}
+  button,.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;transition:.15s}
   button:hover,.btn:hover{border-color:var(--accent);color:var(--accent)}
   button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
   button.primary:hover{background:#1d4ed8;color:#fff}
-  .scope{background:var(--warn-soft);border-bottom:1px solid #fde68a;color:#92400e;padding:9px 28px;font-size:12.5px}
-  nav{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:0 28px;display:flex;gap:4px;overflow-x:auto}
+  .scope{background:var(--warn-soft);border-bottom:1px solid rgba(210,153,34,.35);color:var(--warn);padding:9px 28px;font-size:12.5px}
+  nav{position:sticky;top:0;z-index:20;background:rgba(13,17,23,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:0 28px;display:flex;gap:4px;overflow-x:auto}
   nav button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:12px 14px;white-space:nowrap;color:var(--muted)}
   nav button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
   main{max-width:1280px;margin:0 auto;padding:24px 28px 64px}
@@ -31,7 +31,7 @@
   .tab.active{display:block}
   @keyframes fade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
   h2{font-size:17px;margin:0 0 14px}
-  h3{font-size:14px;margin:22px 0 10px;color:#334155}
+  h3{font-size:14px;margin:22px 0 10px;color:var(--ink)}
   .grid{display:grid;gap:16px}
   .g4{grid-template-columns:repeat(4,1fr)}
   .g3{grid-template-columns:repeat(3,1fr)}
@@ -44,7 +44,7 @@
   .chart{width:100%;overflow-x:auto}
   svg{display:block;max-width:100%}
   .axis{stroke:var(--line);stroke-width:1}
-  .gridline{stroke:#eef2f7;stroke-width:1}
+  .gridline{stroke:#21262d;stroke-width:1}
   .tick{font-size:10px;fill:var(--muted)}
   .bar{fill:var(--accent)}
   .bar.warn{fill:#f59e0b}
@@ -53,32 +53,32 @@
   .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
   .viz-mode{padding:5px 10px;font-size:12px;color:var(--muted)}
   .viz-mode.active{background:var(--accent);border-color:var(--accent);color:#fff}
-  .heat td{border:1px solid #fff;text-align:center;min-width:46px;font-size:11px;color:#1e293b}
+  .heat td{border:1px solid var(--card);text-align:center;min-width:46px;font-size:11px;color:#e6edf3}
   .heat th{background:transparent;position:static}
   .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
   table{width:100%;border-collapse:collapse;font-size:12.5px}
   th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-  th{color:var(--muted);font-weight:600;background:#f8fafc;position:sticky;top:0}
-  tr:hover td{background:#fafcff}
-  .pill{display:inline-block;border-radius:999px;padding:1px 8px;font-size:11px;line-height:1.7;background:#eef2ff;color:#4338ca}
+  th{color:var(--muted);font-weight:600;background:#1c2230;position:sticky;top:0}
+  tr:hover td{background:#1a2029}
+  .pill{display:inline-block;border-radius:999px;padding:1px 8px;font-size:11px;line-height:1.7;background:#1e2a4a;color:#a5c8ff}
   .pill.ok{background:var(--ok-soft);color:var(--ok)}
   .pill.warn{background:var(--warn-soft);color:var(--warn)}
   .pill.red{background:var(--red-soft);color:var(--red)}
   .muted{color:var(--muted)}
   .small{font-size:12px}
-  .note{border-left:3px solid var(--warn);background:var(--warn-soft);padding:10px 12px;border-radius:0 8px 8px 0;color:#92400e;font-size:12.5px;margin:12px 0}
-  .note.blue{border-color:var(--accent);background:var(--accent-soft);color:#1e40af}
+  .note{border-left:3px solid var(--warn);background:var(--warn-soft);padding:10px 12px;border-radius:0 8px 8px 0;color:#e3b341;font-size:12.5px;margin:12px 0}
+  .note.blue{border-color:var(--accent);background:var(--accent-soft);color:#a5c8ff}
   .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-  select,input[type=text],textarea{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;background:#fff;color:var(--ink);font-size:13px}
+  select,input[type=text],textarea{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;background:#0f141b;color:var(--ink);font-size:13px}
   textarea{width:100%;min-height:190px;resize:vertical;font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}
   .scroll{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:10px}
-  .track{position:relative;height:34px;background:linear-gradient(#f8fafc,#f8fafc);border-radius:8px;margin:6px 0;overflow:hidden}
+  .track{position:relative;height:34px;background:linear-gradient(#1c2230,#1c2230);border-radius:8px;margin:6px 0;overflow:hidden}
   .track .seg{position:absolute;top:9px;height:16px;border-radius:4px}
   .track .ev{position:absolute;top:4px;width:3px;height:26px;background:var(--red);border-radius:2px}
   .timeline-row{border-bottom:1px solid var(--line);padding:10px 0}
   .timeline-row:last-child{border-bottom:0}
   .timeline-head{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
-  .map-wrap{height:560px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f1f5f9;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
+  .map-wrap{height:560px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#161b22;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
   #map{width:100%;height:100%}
   pre{white-space:pre-wrap;word-break:break-word;background:#0f172a;color:#e2e8f0;padding:16px;border-radius:10px;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;max-height:460px;overflow:auto}
   .footer{margin-top:32px;color:var(--muted);font-size:11.5px;text-align:center}
@@ -96,6 +96,14 @@
   .demo-bar button.primary{background:#2563eb;border-color:#2563eb;color:#fff}
   body.demo-on main{padding-bottom:150px}
   @media(max-width:900px){.demo-bar{padding:12px 16px;gap:10px}.demo-bar .text{min-width:100%}}
+  @media print{
+    :root{--bg:#fff;--card:#fff;--ink:#1f2937;--muted:#475569;--line:#cbd5e1;--accent:#2563eb;--accent-soft:#eff6ff;--ok:#047857;--ok-soft:#ecfdf5;--warn:#b45309;--warn-soft:#fffbeb;--red:#b91c1c;--red-soft:#fef2f2;--shadow:none}
+    header,nav{background:#fff}
+    th,tr:hover td,.track{background:#f8fafc}
+    .demo-bar,.demo-badge{display:none!important}
+    body.demo-on main{padding-bottom:0}
+    .card{break-inside:avoid}
+  }
 </style>
 </head>
 <body>
@@ -196,7 +204,7 @@
 
   <section class="tab" id="tab-did">
     <h2>2018 中美科技战 DID 推断</h2>
-    <div class="note red" style="border-color:var(--red);background:var(--red-soft);color:#991b1b">
+    <div class="note red" style="border-color:var(--red);background:var(--red-soft);color:#ff9b95">
       当前 treated 仅 5 人，2x2 聚类 SE 显著（p≈0.005）但事件研究联合平行趋势不显著（p≈0.35），两套口径互相矛盾。以下结果<b>只证明流程可跑通，不构成政策结论</b>。
     </div>
     <div class="grid g2">
@@ -317,7 +325,7 @@ const n = (v) => (v == null ? "—" : Number(v).toLocaleString("zh-CN"));
 const f = (v, d=3) => (v == null || Number.isNaN(Number(v)) ? "—" : Number(v).toFixed(d));
 
 if (!S) {
-  document.body.innerHTML = '<div style="padding:40px;color:#b91c1c">未找到 <code>web/data/snapshot.js</code>。请先运行 <code>pipeline/export_platform_snapshot.py</code>。</div>';
+  document.body.innerHTML = '<div style="padding:40px;color:#f85149">未找到 <code>web/data/snapshot.js</code>。请先运行 <code>pipeline/export_platform_snapshot.py</code>。</div>';
   throw new Error("snapshot.js missing");
 }
 
@@ -437,7 +445,7 @@ function renderHeat(rows){
     h+=`<tr><th>${esc(a)}</th>`;
     codes.forEach(b=>{
       const v=map.get(a+"|"+b)||0, alpha=v?Math.max(.10,Math.min(.85,v/max)).toFixed(2):0;
-      h+=`<td style="background:rgba(37,99,235,${alpha})" title="${esc(a)}→${esc(b)}: ${v}">${v||"·"}</td>`;
+      h+=`<td style="background:rgba(56,139,253,${alpha})" title="${esc(a)}→${esc(b)}: ${v}">${v||"·"}</td>`;
     });
     h+="</tr>";
   });
@@ -460,7 +468,7 @@ function renderFlowDiagram(rows){
   });
   codes.forEach(c=>{
     const p=pos[c];
-    s+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="12" fill="#eff6ff" stroke="#2563eb"/><text class="tick" x="${p.x.toFixed(1)}" y="${(p.y+4).toFixed(1)}" text-anchor="middle" style="font-size:11px;fill:#1e40af">${esc(c)}</text>`;
+    s+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="12" fill="#1c2230" stroke="#58a6ff"/><text class="tick" x="${p.x.toFixed(1)}" y="${(p.y+4).toFixed(1)}" text-anchor="middle" style="font-size:11px;fill:#a5c8ff">${esc(c)}</text>`;
   });
   s+="</svg>";
   $("#chart-flows").innerHTML=s;
@@ -473,8 +481,8 @@ function renderThreeD(rows){
   top.forEach((r,i)=>{
     const x=44+i*step,h=Math.max(4,r.total/max*150),fill=r.cross_border?"#2563eb":"#94a3b8";
     s+=`<polygon points="${x},${baseY} ${x+w},${baseY} ${x+w},${baseY-h} ${x},${baseY-h}" fill="${fill}" opacity=".86"/>`;
-    s+=`<polygon points="${x},${baseY-h} ${x+w},${baseY-h} ${x+w+d},${baseY-h-d} ${x+d},${baseY-h-d}" fill="${r.cross_border?'#93c5fd':'#e2e8f0'}"/>`;
-    s+=`<polygon points="${x+w},${baseY} ${x+w+d},${baseY-d} ${x+w+d},${baseY-h-d} ${x+w},${baseY-h}" fill="${r.cross_border?'#1d4ed8':'#64748b'}"/>`;
+    s+=`<polygon points="${x},${baseY-h} ${x+w},${baseY-h} ${x+w+d},${baseY-h-d} ${x+d},${baseY-h-d}" fill="${r.cross_border?'#8ab4f8':'#4a5563'}"/>`;
+    s+=`<polygon points="${x+w},${baseY} ${x+w+d},${baseY-d} ${x+w+d},${baseY-h-d} ${x+w},${baseY-h}" fill="${r.cross_border?'#1a3a6b':'#3a4452'}"/>`;
     s+=`<text class="tick" x="${x+w/2}" y="${(baseY-h-d-6).toFixed(1)}" text-anchor="middle">${r.total}</text>`;
     s+=`<text class="tick" x="${x+w/2}" y="${baseY+20}" text-anchor="middle" style="font-size:9px">${esc(r.from_country)}→${esc(r.to_country)}</text>`;
   });
@@ -570,9 +578,9 @@ function forest(target, rows){
   rows.forEach((r,i)=>{
     const y=22+i*42, l=x(Number(r.ci_low)||0), h=x(Number(r.ci_high)||0), b=Number(r.coefficient)||0;
     s+=`<text class="tick" x="${L-8}" y="${y+4}" text-anchor="end">${esc(r.outcome)} / ${esc(r.specification)}</text>`;
-    s+=`<line x1="${l}" y1="${y}" x2="${h}" y2="${y}" stroke="#94a3b8" stroke-width="2"/>`;
-    s+=`<line x1="${l}" y1="${y-5}" x2="${l}" y2="${y+5}" stroke="#64748b"/><line x1="${h}" y1="${y-5}" x2="${h}" y2="${y+5}" stroke="#64748b"/>`;
-    s+=`<circle cx="${x(b)}" cy="${y}" r="5" fill="${(Number(r.p_value)<0.05)?"#b91c1c":"#2563eb"}"><title>${esc(r.outcome)}: ${f(b)} (p=${f(r.p_value)})</title></circle>`;
+    s+=`<line x1="${l}" y1="${y}" x2="${h}" y2="${y}" stroke="#6e7681" stroke-width="2"/>`;
+    s+=`<line x1="${l}" y1="${y-5}" x2="${l}" y2="${y+5}" stroke="#8b949e"/><line x1="${h}" y1="${y-5}" x2="${h}" y2="${y+5}" stroke="#8b949e"/>`;
+    s+=`<circle cx="${x(b)}" cy="${y}" r="5" fill="${(Number(r.p_value)<0.05)?"#f85149":"#58a6ff"}"><title>${esc(r.outcome)}: ${f(b)} (p=${f(r.p_value)})</title></circle>`;
     s+=`<text class="tick" x="${h+6}" y="${y+4}">${f(b)}</text>`;
   });
   s+=`<text class="tick" x="${L}" y="${H-8}">${f(lo,2)}</text><text class="tick" x="${W-R}" y="${H-8}" text-anchor="end">${f(hi,2)}</text></svg>`;
