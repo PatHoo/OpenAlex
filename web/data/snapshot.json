@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-22T23:35:51+00:00",
+  "generated_at": "2026-11-23T08:16:33+00:00",
   "scope": {
     "event_rule": "A_1000_v1",
     "cohort_rule": "CN_US_2017_v1",
@@ -13,7 +13,7 @@
     "institutions": 31388,
     "annual_rows": 42056,
     "events": 13355,
-    "evidence_rows": 53455,
+    "evidence_rows": 53425,
     "cohort_members": 111,
     "treated": 5
   },

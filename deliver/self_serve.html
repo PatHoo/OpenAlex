@@ -281,7 +281,7 @@
           <button class="btn btn-primary" id="btn-key">保存 Key</button>
         </div>
         <div class="hint" id="key-hint">
-          免费 key 每天 $1 额度（约 1 万次检索）、30 请求/秒。前往
+          免费 key 每天 $1 额度（约 1,000 次检索）；OpenAlex 限速上限 30 请求/秒，本工具按 8 请求/秒自限速。前往
           <a href="https://openalex.org/signup" target="_blank">openalex.org/signup</a> 注册，
           再到 <a href="https://openalex.org/settings/api-key" target="_blank">设置页</a> 复制，并去邮箱点激活链接。
           <span id="key-status"></span>
@@ -292,7 +292,7 @@
       <div class="card" id="step-list">
         <div class="card-head"><div class="step-no">2</div><h2>选择学者名单</h2></div>
         <div class="tabs">
-          <button id="tab-preset" class="active">预置名单（105,027 人）</button>
+          <button id="tab-preset" class="active">预置名单（105,026 人）</button>
           <button id="tab-paste">自传名单</button>
         </div>
 
@@ -366,7 +366,7 @@
           <div class="export-item" data-kind="requests"><div class="fi">📡</div><div><div class="fn">请求留痕 requests.jsonl</div><div class="fs">API 调用与额度审计</div></div></div>
           <div class="export-item" data-kind="checkpoint"><div class="fi">💾</div><div><div class="fn">断点 checkpoint.json</div><div class="fs">续跑进度快照</div></div></div>
         </div>
-        <div class="hint">数据落盘于本机 <code id="workdir-hint">pipeline/data/self_serve/</code>，点击即可下载。</div>
+        <div class="hint">数据落盘于本机 <code id="workdir-hint">data/self_serve/</code>，点击即可下载。</div>
         <table id="result-table" style="margin-top:18px; display:none">
           <thead><tr><th>序号</th><th>姓名</th><th>作品数</th><th>候选数</th></tr></thead>
           <tbody></tbody>

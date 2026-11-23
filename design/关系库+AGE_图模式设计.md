@@ -4,7 +4,7 @@
 适用范围：OpenAlex 科研分析平台 · 科学家空间流动数据库子系统。此处「第一期/第二期」为**技术施工顺序**（第一期＝数据地基、第二期＝事件引擎），与合同的四期付款分期（第二期＝实验数据分析＋文献）不是同一套口径，勿混用。
 配套脚本：`schema.sql`（本文所有 DDL 的可执行版本）、`三人小样_seed.sql`、`三人小样_AGE投影.sql`、`verify_poc.sql`（导入后核对）
 
-> v1.1 修复：表数量 18→22；C5 消解 SQL 改用真实的 `from_alias_id` → `institution_alias.raw_name` 连接；`event_evidence.criterion` 枚举、`class_rule` / `mobility_class` 主键描述对齐 DDL；明确"目标图模式"与"小样已实现图模式"的差异；`drop_graph` 重建增加存在性判断。
+> v1.1 修复：表数量 18→25；C5 消解 SQL 改用真实的 `from_alias_id` → `institution_alias.raw_name` 连接；`event_evidence.criterion` 枚举、`class_rule` / `mobility_class` 主键描述对齐 DDL；明确"目标图模式"与"小样已实现图模式"的差异；`drop_graph` 重建增加存在性判断。
 
 ---
 
@@ -237,7 +237,7 @@ CREATE TRIGGER trg_a_immutable BEFORE UPDATE OR DELETE ON mobility_event
 
 ### 4.1 图与标签
 
-> **目标模式 vs 小样实现**：下方 DDL 是**目标模式**（7 类顶点、14 种边）。`三人小样_AGE投影.sql` 只实现其中 **5 类顶点（Scholar / Institution / Country / CareerFact / Event）与 9 种边**，暂缺 `Work`、`Alias` 节点及 `AUTHORED`、`SIGNED_AT`、`RENAMED_TO`、`IN_COHORT` 边；小样额外使用 `HAS_FACT` 边连接学者与履历，目标模式中等价关系由 `CORROBORATED_BY` 表达。两者并存不冲突，但不能把目标模式当成已跑通的图查询结果。
+> **目标模式 vs 小样实现**：下方 DDL 是**目标模式**（7 类顶点、12 种边）。`三人小样_AGE投影.sql` 只实现其中 **5 类顶点（Scholar / Institution / Country / CareerFact / Event）与 9 种边**，暂缺 `Work`、`Alias` 节点及 `AUTHORED`、`SIGNED_AT`、`RENAMED_TO`、`IN_COHORT` 边；小样额外使用 `HAS_FACT` 边连接学者与履历，目标模式中等价关系由 `CORROBORATED_BY` 表达。两者并存不冲突，但不能把目标模式当成已跑通的图查询结果。
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS age;
@@ -414,7 +414,7 @@ CREATE (s)-[:AFFILIATED {
 
 ## 9. 从现有 Excel 迁移到新库
 
-现有 `1030版_新三学者基线与增量对照数据.xlsx` 有 25 个 sheet，迁移映射：
+现有 `1030版_新三学者基线与增量对照数据.xlsx` 有 26 个 sheet，迁移映射：
 
 | Excel sheet | 目标表 |
 |---|---|
@@ -425,7 +425,7 @@ CREATE (s)-[:AFFILIATED {
 | `A不确定转换` / `A可能机构名称变化观察` | `annual_panel.primary_is_tie` / `institution_alias(status='proposed')` |
 | `A基线请求清单` / `A补查Crossref` | `api_request` |
 | `规则测试` | `rule_test` |
-| `A DOI去重记录` | `doi_duplicate` |
+| `ADOI去重记录` | `doi_duplicate` |
 | `A轨迹_*` | 投影验证集：与图查询结果逐格比对 |
 
 `api_request` 有两份可执行种子，均按显式 `request_id` 幂等写入：`api_request_seed.sql`（1..64，来自 `A基线请求清单`）与 `api_request_crossref_seed.sql`（65..220，来自 `A补查Crossref`）。基线清单未给出逐条 `backend_path` / `error_code`，最后 4 条请求 `bytes` 为空，保留 NULL；补查表无时间戳、sha256、字节数，也保留 NULL。补查请求的 URL 按用户确认规则由 DOI 推导为 `https://api.crossref.org/works/{percent-encoded-doi}`，DOI 中 `< > # ; ( )` 等字符做百分号编码，`/` 保留。原文 DOI 存于 `payload->>'doi'`。

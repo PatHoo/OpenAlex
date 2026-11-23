@@ -71,7 +71,7 @@ export OPENALEX_API_KEY='你的key'
 | `wp6_extract_institutions.py` | WP6 | 从 works.jsonl 抽机构/ROR/国家/别名 | 31,388 机构 / 181.6 万别名 |
 | `wp7_load_institutions.py` | WP7 | 国家字典 + 种子机构补 ROR + 机构/别名入库 | country 203 / inst 31,388 |
 | `wp8_backfill_institution.py` | WP8 | raw_affiliation 匹配别名回填 matched_institution_id | 646,069 条回填 |
-| `wp9_build_panel.py` | WP9 | 年度众数主机构 + 并列 + 次级国家/机构 + 占比 | annual_panel 42,046 行 / share 96,481 行 |
+| `wp9_build_panel.py` | WP9 | 年度众数主机构 + 并列 + 次级国家/机构 + 占比 | annual_panel 42,056 行 / share 96,481 行 |
 | `wp10_event_engine.py` | WP10 | C1–C5 事件 + 三指标证据 + C2 抑制 + C4 三态 | 13,355 事件 / 53,425 证据行 |
 | `wp11_classify.py` | WP11 | 按 8.5 算 D/I/S → M1–M8 分类 + 三类次数（独立视图） | 896 人分类，631 可定类 / 265 不确定 |
 | `wp13_cohort_screen.py` | WP13 | 拼音姓氏 + 中国内地/中国香港/中国台湾机构署名 + 2017 在美 → 候选队列 | cohort_member 111（7 high / 104 low）/ 证据 819 行 |
@@ -217,7 +217,7 @@ bash ~/oa_quota.sh
 
 | 表 | 行数 | 说明 |
 |---|---|---|
-| `annual_panel` | 42,046（wp9 新建） | 覆盖 896 学者，年份 1869–2026；并列年 1,890、有次级国家 9,882 |
+| `annual_panel` | 42,056（wp9 新建） | 覆盖 896 学者，年份 1869–2026；并列年 1,890、有次级国家 9,882 |
 | `affiliation_share` | 96,481 | 主机构标记 44,284 行，share 合计按学者年归一 |
 | `mobility_event` | 13,355 | 覆盖 895/896 学者；C1 3,644 / C2 996 / C3 8,504 / C4 211 |
 | `event_evidence` | 53,425 | 四判据各 13,355 行 + external_cv 5 行；孤儿外键 0 |
@@ -274,7 +274,7 @@ bash ~/oa_quota.sh
 - **429 长睡 bug 已修**：旧逻辑对 `daily_budget` 的 429 直接 `sleep(Retry-After)`（约 22h）。现 `oa_client.py` 抛 `APIBudgetExhausted`，主循环立即干净暂停。
 - **WP1 只产候选、不自动定案**：消歧口径需人工确认（本项目按严格 A 级执行）；HOLD/B 级待复核。
 - **数据质量提示**：Druker（src 466）有 25,313 篇署名，源于 OpenAlex 该身份规模（抓取阶段即如此），非落库重复，属源数据同名合并问题。
-- **磁盘**：`works.jsonl` 8.6G 是最大项；全量 105,027 人保守估 ~230G（精简后可读到 ~16G）。当前 C 盘/WSL 空间充足。
+- **磁盘**：`works.jsonl` 8.6G 是最大项；全量 105,026 人保守估 ~230G（精简后可读到 ~16G）。当前 C 盘/WSL 空间充足。
 - **`work.is_preprint` 不可用**：wp3 导入时该布尔列全为 false，但 `work_type='preprint'` 有 7,578 篇。wp9 的有效署名过滤以 `work_type IS DISTINCT FROM 'preprint'` 为准。
 - **三指标判据 1 的口径修正**：设计文档 3.3 示例把 `two_year_dominant` 的 passed 写成两年主机构**相等**，与"事件=主机构变化"矛盾。wp10 按文字意图实现为"两年主机构均非并列（dominant）"，机构是否变化交给事件类型表达。
 - **psql 调用禁止 `| tail`**：管道退出码是 `tail` 的，会把数据库错误吞成成功。统一走 `dbutil.run_psql`，直接检查 `returncode`。
@@ -286,4 +286,4 @@ bash ~/oa_quota.sh
 3. **265 人分类不确定复核**：阴性维度有 Possible 未决候选者 `formal_class` 留空，需人工核验候选事件后定类；Perdew 式"自动 I=1 vs 人工 I=0"的分歧需统一口径。
 4. **可视化与 Agent 平台**：第二期 Demo 已完成并上线（`web/platform.html`，深色主题，含 8 步演示导览），提供统计总览、国家流向（条形/热力矩阵/流线关系/三维柱状四种**非地图**视图）、机构分布、DID、队列证据、文献管理与本地软件协同执行回传入口；配套 `pipeline/export_platform_snapshot.py`、`pipeline/export_local_tools.py`，数据快照由 PG17 只读导出、不含 API key。Demo 与自助抓取共用同一在线应用，分享链接见根 README「在线演示」。底图已选腾讯位置服务 GL JS（合规），境外范围属非默认场景需用户自备 Key 并由后端代理；**地图上的**热力/流线/三维图层、跨库文献检索与大模型写作尚未建设（非地图的同名视图已实现，勿混淆）。
 5. **AGE 图投影**：1000 人数据尚未投影；目标 7 类节点/14 种边，现有小样仅 5 类/9 种。
-6. **全量 105,027 人**：地基与分析层脚本已就绪，但受 API 额度（$1/天/key）与磁盘（works.jsonl 全量估 ~230G）约束，尚未启动。
+6. **全量 105,026 人**：地基与分析层脚本已就绪，但受 API 额度（$1/天/key）与磁盘（works.jsonl 全量估 ~230G）约束，尚未启动。

@@ -183,7 +183,7 @@
     </div>
     <div class="card" style="margin-top:16px">
       <div class="toolbar" style="justify-content:space-between">
-        <div><h3 style="margin:0">地理视图（腾讯位置服务）</h3><div class="small muted">机构坐标为 WGS84，前端已按 GCJ-02 转换后落点。</div></div>
+        <div><h3 style="margin:0">地理视图（腾讯位置服务）</h3><div class="small muted">坐标已按合规底图口径处理：境内 WGS84 转 GCJ-02，境外坐标原样落点。</div></div>
         <button class="primary" onclick="loadTMap()">加载地图</button>
       </div>
       <div class="note" id="map-note">
@@ -280,7 +280,7 @@
     </div>
     <div class="card" style="margin-top:16px">
       <h3>执行回传演示</h3>
-      <div class="note">演示回传接口，不伪造软件执行：<b>示例结果来自平台标准库复算</b>（`did_robust_estimate`），不是本机 Stata/SPSS 实际运行输出。上传本机真实输出 CSV 后，走同一展示通道。</div>
+      <div class="note">演示回传接口，不伪造软件执行：<b>示例结果来自平台标准库复算</b>（<code>did_robust_estimate</code>），不是本机 Stata/SPSS 实际运行输出。上传本机真实输出 CSV 后，走同一展示通道。</div>
       <div class="toolbar">
         <button class="primary" onclick="loadDemoFeedback()">载入平台复算示例（模拟回传）</button>
         <label class="btn">上传本机软件输出 CSV<input type="file" id="feedback-file" accept=".csv,text/csv" onchange="loadFeedbackFile(event)" style="display:none"></label>
@@ -405,13 +405,12 @@ function lineChart(target, points, opts={}) {
 const kpiDefs = [
   ["定案学者", S.summary.scholars, "A 级消歧，HOLD/B 待复核"],
   ["唯一作品", S.summary.works, "去重后入库"],
-  ["迁移事件", S.summary.events, "13,352 条为署名代理年"],
+  ["迁移事件", S.summary.events, "13,350 条为署名代理年"],
   ["外部证据 treated", S.summary.treated, "人工复核后 eligible"]
 ];
 $("#kpis").innerHTML = kpiDefs.map(k=>`<div class="card kpi"><div class="label">${k[0]}</div><div class="value">${n(k[1])}</div><div class="hint">${esc(k[2])}</div></div>`).join("");
 
-hBars("#chart-class", S.classification.map(r=>({label:r.observed_class, value:r.formal, color:"#2563eb"})).map((r,i)=>({...r, uncertain:S.classification[i].uncertain})), {width:560,left:52});
-/* overlay uncertain on the same rows */
+/* 分类图：可定类/不确定叠加在同一行（下方 IIFE 渲染） */
 (function(){
   const rows=S.classification; const W=560,left=52,right=20,rowH=26,H=rows.length*rowH+34;
   const max=Math.max(1,...rows.map(r=>r.observed));
@@ -507,7 +506,12 @@ hBars("#chart-inst", S.top_institutions.slice(0,20).map(r=>({label:r.name, value
 
 /* ---------- Tencent Maps (non-default scenario: overseas coverage, user-supplied key) ---------- */
 const TMAP_KEY = "Please apply for your own key at Tencent Location Service open platform and replace this placeholder";
+function outOfChina(lat, lon){
+  // GCJ-02 偏移仅在中国大陆生效；境外坐标原样返回，避免 2–5 km 的错误偏移
+  return !(lon>73.66 && lon<135.05 && lat>3.86 && lat<53.55);
+}
 function wgs84ToGcj02(lat, lon){
+  if(outOfChina(lat, lon)) return {lat:lat, lon:lon};
   const pi=Math.PI, a=6378245.0, ee=0.00669342162296594323;
   function tl(x,y){let r=-100+2*x+3*y+0.2*y*y+0.1*x*y+0.2*Math.sqrt(Math.abs(x));r+=(20*Math.sin(6*x*pi)+20*Math.sin(2*x*pi))*2/3;r+=(20*Math.sin(y*pi)+40*Math.sin(y/3*pi))*2/3;r+=(160*Math.sin(y/12*pi)+320*Math.sin(y*pi/30))*2/3;return r;}
   function tg(x,y){let r=300+x+2*y+0.1*x*x+0.1*x*y+0.1*Math.sqrt(Math.abs(x));r+=(20*Math.sin(6*x*pi)+20*Math.sin(2*x*pi))*2/3;r+=(20*Math.sin(x*pi)+40*Math.sin(x/3*pi))*2/3;r+=(150*Math.sin(x/12*pi)+300*Math.sin(x/30*pi))*2/3;return r;}
@@ -521,7 +525,7 @@ function wgs84ToGcj02(lat, lon){
 function loadTMap(){
   const wrap=$("#map-wrap");
   if (TMAP_KEY.startsWith("Please apply")){
-    wrap.innerHTML='<div class="muted" style="max-width:620px">尚未配置腾讯位置服务 Key。请到 <a href="https://lbs.qq.com/dev/console/application/mine" target="_blank" rel="noopener">腾讯位置服务控制台</a> 申请 Key，替换 <code>platform.html</code> 中的 <code>TMAP_KEY</code> 占位符后重新点击。生产环境应由后端代理 Key，不要在公开前端明文保存。</div>';
+    wrap.innerHTML='<div class="muted" style="max-width:620px">尚未配置腾讯位置服务 Key。请到 <a href="https://lbs.qq.com/dev/console/application/mine" target="_blank" rel="noopener">腾讯位置服务控制台</a> 申请 Key，本地 Demo 可在 <code>platform.html</code> 填入 <code>TMAP_KEY</code> 自行验证；生产环境应由后端代理 Key，不要在公开前端明文保存。</div>';
     return;
   }
   if (window.TMap){ initTMap(); return; }
@@ -534,7 +538,7 @@ function loadTMap(){
 function initTMap(){
   const wrap=$("#map-wrap");
   wrap.innerHTML='<div id="map"></div>';
-  const pts=S.top_institutions.filter(r=>r.lat!=null&&r.lon!=null).slice(0,40);
+  const pts=S.top_institutions.filter(r=>r.lat!=null&&r.lon!=null);
   const center=pts.length?wgs84ToGcj02(Number(pts[0].lat),Number(pts[0].lon)):{lat:35,lon:105};
   const map=new TMap.Map("map",{zoom:4,center:new TMap.LatLng(center.lat,center.lon)});
   const max=Math.max(1,...pts.map(r=>r.total));
@@ -616,7 +620,7 @@ function generateReport(){
     "",
     "5. 中国背景队列与 DID：候选队列 "+n(S.summary.cohort_members)+" 人，经外部证据复核后 eligible treated "+n(S.summary.treated)+" 人。2018 DID 2x2 系数 "+(did?f(did.coefficient):"—")+"（聚类 p="+(did?f(did.p_value):"—")+"），但事件研究联合平行趋势未通过，且 treated 样本极小；结论应限定为“流程验证”，不得作政策推断。",
     "",
-    "6. 边界声明：外部出生国证据来自公开来源，非官方出生证明；cohort_member.birth_country 保持 NULL。空间可视化须使用合规底图，文献检索与格式转换、大模型写作尚未建设。"
+    "6. 边界声明：外部出生国证据来自公开来源，非官方出生证明；cohort_member.birth_country 保持 NULL。空间可视化须使用合规底图；跨库文献检索、大模型写作尚未建设（单库题录管理与格式转换已在 Demo 中演示）。"
   ].join("\n");
   $("#report-output").textContent=txt;
 }

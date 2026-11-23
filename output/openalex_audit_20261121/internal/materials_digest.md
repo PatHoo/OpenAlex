@@ -8,7 +8,7 @@
 - 验收样例：获取约 20 万高引学者空间迁移轨迹、筛"中国出生、现阶段在美国居留"学者、用 DID 检验 2017-2018 中美科技战在美学者流动影响。
 
 ## 2. 科学家空间流动数据库建立操作1030.docx（2026-10-31 修订稿）
-- 研究对象：Elsevier 2017 全球高被引 105,027 名（1.1 节）。
+- 研究对象：Elsevier 2017 全球高被引 105,026 名（1.1 节；Excel 表 105,027 行含表头）。
 - 数据源调整：从 Scopus 转向 OpenAlex 为核心 + ROR + ORCID + Crossref/DataCite；Scopus 降为"非依赖性参考来源"（1.2 节）。
 - 七工作包 WP0–WP6（二节）。
 - C1–C5 事件定义（8.1.2）：C1 国内机构迁移；C2 国际迁移（优先于 C1）；C3 新增次级国家；C4 原主国家降级次级并持续（pending/confirmed/not_sustained）；C5 机构改名不计迁移。
@@ -19,7 +19,7 @@
 
 ## 3. Table-S1-career-2017.xlsx
 - Key 表：43 字段说明。
-- Career 表：105,027 行 × 42 列；字段含 authfull、inst_name、cntry、np6017、firstyr、lastyr、h17、c 等。
+- Career 表：105,027 行（含表头，105,026 名学者）× 42 列；字段含 authfull、inst_name、cntry、np6017、firstyr、lastyr、h17、c 等。
 
 ## 4. 1030版_新三学者基线与增量对照数据.xlsx（25 个 sheet）
 - 说明与方法归属：A=原名单与新三人（新抓取）；方案基线 60% 归 A；阈值 50%/70% 归 B（独立重算不覆盖 A）；时间差诊断/证据卡归 B 复用 A 证据；重要限制=A/B 两人分类不确定、ROR/原文恢复不完整、未用户审计。
@@ -49,7 +49,7 @@
 
 - 工作包 WP0–WP16 全部跑通：名单导入 → OpenAlex 抓取 → 作品落库 → 消歧定案 → 署名落库 → 机构/ROR → 机构回填 → 年度面板 → C1–C5 事件 → D/I/S 分类 → 中国背景候选队列 → 外部出生国证据核查 → 2018 DID → 聚类稳健统计。
 - 抓取：1,000/1,000 学者完成（src_id 2–1001 连续），作品 922,627 篇，API 请求 10,760 次（10,759×200 + 1 条旧 key 遗留 429）。
-- 落库（约 1.36 GB）：`work` 865,111（按 openalex_id 去重）；`scholar` 896（3 种子 + 893 新）；`identity_map` 1,700（openalex 896 = A718/B178，orcid 804）；`name_variant` 893；`authorship` 846,012（覆盖全部 896 学者）。
+- 落库（数据表约 1.36 GB；含索引与 WAL 的数据库总体积约 2.1 GB）：`work` 865,111（按 openalex_id 去重）；`scholar` 896（3 种子 + 893 新）；`identity_map` 1,700（openalex 896 = A718/B178，orcid 804）；`name_variant` 893；`authorship` 846,012（覆盖全部 896 学者）。
 - 机构：`country` 203；`institution` 31,388（全部带 ROR）；`institution_alias` 1,815,799（全 confirmed）；`authorship.matched_institution_id` 已回填 646,069 条（占全部署名 76.37%、占有署名串的 674,046 条的 95.85%），孤儿外键 0。
 - 消歧口径：严格 A 级 + 每组重复行只建 h17 最高主行 + A/B 都建映射；dry-run 分级 A=710/B=178/HOLD=98/DUP=11/SEED=3。HOLD（98 人）与 B 级（178 人）留待人工复核。
 - 数据质量提示：Druker（src 466）有 25,313 篇署名，源于 OpenAlex 该身份规模（抓取阶段即如此），非落库重复；有署名串但未匹配到机构的署名 27,977 条。

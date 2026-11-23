@@ -329,7 +329,7 @@ WHERE scholar_id=1 AND rule_version='A_base_060';
 ```sql
 SELECT ap.year, ap.primary_country country, i.canonical_name inst,
        i.city, i.lat, i.lon, ap.note event
-FROM annual_panel ap LEFT JOIN institution i USING (institution_id)
+FROM annual_panel ap LEFT JOIN institution i ON i.institution_id=ap.primary_institution_id
 WHERE ap.scholar_id=3 AND ap.primary_institution_id IS NOT NULL
 ORDER BY ap.year;
 ```
@@ -399,7 +399,7 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
 
 - [ ] Docker 容器运行，PG + AGE 扩展可用
 - [ ] `schema.sql` 执行无 ERROR
-- [ ] `三人小样_seed.sql` 导入，8 张表行数与第 5.3 节一致
+- [ ] `三人小样_seed.sql` 导入，12 张表行数与第 5.3 节一致
 - [ ] 6.1 Becke/Perdew formal 留空、Newman=M8
 - [ ] 6.2 六条事件、2 条 signature_proxy、4 条 external_actual 且 gap=1
 - [ ] 6.4 A 轨不可变触发器生效

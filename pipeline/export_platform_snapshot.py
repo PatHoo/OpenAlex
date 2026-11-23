@@ -46,10 +46,10 @@ def build_snapshot(conn) -> dict:
                 (SELECT count(*) FROM institution) AS institutions,
                 (SELECT count(*) FROM annual_panel) AS annual_rows,
                 (SELECT count(*) FROM mobility_event WHERE rule_version=%s) AS events,
-                (SELECT count(*) FROM event_evidence) AS evidence_rows,
+                (SELECT count(*) FROM event_evidence WHERE rule_version=%s) AS evidence_rows,
                 (SELECT count(*) FROM cohort_member) AS cohort_members,
                 (SELECT count(*) FROM cohort_external_review WHERE eligible_treated) AS treated
-        """, (RULE_EVENT,))[0]
+        """, (RULE_EVENT, RULE_EVENT))[0]
 
         classification = fetchall(cur, """
             SELECT observed_class,
