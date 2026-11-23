@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="docx-page-size" content="A4">
+<title>数据维度说明：自助抓取工具与全链路分析成果的关系</title>
+<style>
+  @page { @bottom-center { content: counter(page); } }
+  body { font-family: "SimSun", "宋体", serif; font-size: 12pt; color: #000; line-height: 1.7; }
+  table { border-collapse: collapse; width: 100%; margin: 8pt 0 12pt 0; }
+  th, td { border: 1px solid #666; padding: 5pt 8pt; font-size: 10.5pt; vertical-align: top; }
+  th { background: #eaeaea; font-weight: bold; }
+</style>
+</head>
+<body>
+<section role="body">
+  <h1 style="font-family:'SimHei','黑体',sans-serif; font-size:20pt; text-align:center; margin:0 0 4pt 0;">OpenAlex 科研分析平台（原科学家空间流动数据库项目）</h1>
+  <h2 style="font-family:'SimHei','黑体',sans-serif; font-size:15pt; text-align:center; margin:0 0 10pt 0;">数据维度说明：自助抓取工具与全链路分析成果的关系</h2>
+  <p style="font-size:10.5pt; text-align:center; color:#555; text-indent:0; margin:0 0 14pt 0;">致委托方　|　2026-11-23　|　就"网站抓取数据与 1030 版认可样例的差异"作维度层面的说明，供双方对齐理解</p>
+
+  <h3 style="font-family:'SimHei','黑体',sans-serif; font-size:13pt; margin:12pt 0 6pt 0;">一、结论先行</h3>
+  <p>委托方反馈：使用在线自助抓取工具导出的数据，与 2026-10-30 确认的《新三学者基线与增量对照数据》在维度上差别较大。</p>
+  <p>对此我们的说明是：<strong>这两份数据处于同一条工作流水线的上下游，是"原料"与"成品"的关系，并非同一份数据的两个版本，也不存在口径矛盾。</strong></p>
+  <p>在线抓取工具产出的是<strong>原始作品层数据</strong>（论文、作者、机构、引用等 OpenAlex 原始字段），是整条分析链路的<strong>输入</strong>；1030 版认可样例是全链路分析完成后的<strong>成果层数据</strong>（身份消歧、迁移事件、学者分类、轨迹、证据链等），是<strong>输出</strong>。</p>
+  <p>一个直观的类比：抓取工具交付的是"从数据库检索出的原始论文清单"，而 1030 版样例交付的是"基于这些论文、经过统计与判定后得出的学者迁移结论"。前者是后者的计算素材。</p>
+
+  <h3 style="font-family:'SimHei','黑体',sans-serif; font-size:13pt; margin:12pt 0 6pt 0;">二、1030 版认可样例包含的维度（分析层成果）</h3>
+  <p>该样例共 25 个工作表，按维度可归为七类，均已在 1030 版资料中经委托方确认：</p>
+  <table>
+    <tr><th style="width:24%;">维度层</th><th>具体内容</th></tr>
+    <tr><td>身份映射层</td><td>学者编号、ORCID、消歧等级、抓取篇数、覆盖年份区间</td></tr>
+    <tr><td>学者分类层</td><td>D/I/S 三指标 → M1–M8 八类学者；区分观测类别与正式类别、标注不确定项</td></tr>
+    <tr><td>迁移事件层</td><td>C1–C5 事件、署名观测年与实际任职年的对照、多项判据证据</td></tr>
+    <tr><td>逐人轨迹层</td><td>主国家/主机构的逐年序列、城市与经纬度、关键事件标注</td></tr>
+    <tr><td>证据核查层</td><td>外部履历证据、时间差诊断、机构名称变化、次级联系终止、DOI 去重</td></tr>
+    <tr><td>规则与口径层</td><td>阈值口径说明、A/B 双轨敏感性设置、19 项规则测试</td></tr>
+    <tr><td>请求留痕层</td><td>逐条 API 请求记录（基线 64 条 + 补查 156 条），可追溯</td></tr>
+  </table>
+
+  <h3 style="font-family:'SimHei','黑体',sans-serif; font-size:13pt; margin:12pt 0 6pt 0;">三、在线抓取工具导出的维度（原始层）</h3>
+  <p>工具当前提供两种导出，均属原始作品层：</p>
+  <p><strong>作品明细表（CSV，Excel 可直接打开）</strong>：13 列——序号、名单序号、名单姓名、匹配学者、OpenAlex 作者 ID、作品标题、DOI、发表年份、类型、被引数、期刊来源、机构、作者。</p>
+  <p><strong>作品明细（JSONL）</strong>：保留 OpenAlex 返回的完整原始字段，供程序化处理。</p>
+  <p>这两类导出都不包含上表第二、三、四、五层的分析结论——因为<strong>抓取工具本身不承担分析判定职能</strong>，它只负责把数据从 OpenAlex 取回并整理成表。</p>
+
+  <h3 style="font-family:'SimHei','黑体',sans-serif; font-size:13pt; margin:12pt 0 6pt 0;">四、为什么定位不同</h3>
+  <table>
+    <tr><th style="width:20%;">—</th><th style="width:40%;">在线自助抓取工具</th><th style="width:40%;">1030 版分析成果</th></tr>
+    <tr><td>定位</td><td>数据获取环节的工具</td><td>分析判定环节的成果</td></tr>
+    <tr><td>使用者</td><td>委托方自行操作，按需抓取</td><td>我方全链路执行后交付</td></tr>
+    <tr><td>产出</td><td>原始作品记录（原料）</td><td>分类、事件、轨迹、证据（成品）</td></tr>
+    <tr><td>用途</td><td>扩充样本、核对原始文献</td><td>支撑研究结论与验收</td></tr>
+  </table>
+  <p>两者不是替代关系：抓取工具让委托方能够自主、低成本地扩充原始数据；而将这些原始数据加工成 1030 版那样的分析成果，需要运行完整的分析工作包（事件引擎、消歧判定、履历核查等），这部分能力规划在平台后续阶段中交付。</p>
+
+  <h3 style="font-family:'SimHei','黑体',sans-serif; font-size:13pt; margin:12pt 0 6pt 0;">五、后续衔接</h3>
+  <p>我方理解，委托方以 1030 版样例作为"认可的数据形态"。后续阶段将把该样例中的分析维度逐步落到平台上，使委托方能够：</p>
+  <p>1. 在平台中直接查看学者分类、迁移事件与逐人轨迹，而不必另行比对 Excel；</p>
+  <p>2. 将自助抓取工具取得的新数据，接入同一套分析流程，产出与 1030 版同维度的成果；</p>
+  <p>3. 按委托方确认的口径，导出统一的成果表。</p>
+
+  <h3 style="font-family:'SimHei','黑体',sans-serif; font-size:13pt; margin:12pt 0 6pt 0;">六、请委托方确认</h3>
+  <p>为便于后续对齐，烦请确认以下两点：</p>
+  <p>1. 是否认可"抓取工具＝原始层、1030 版样例＝分析层"这一定位区分；</p>
+  <p>2. 后续分析成果，期望以何种形态交付——在线平台交互查看、本地数据包，或两者兼顾。</p>
+
+  <p style="font-size:10.5pt; color:#555; margin-top:18pt;">本说明仅就数据维度关系作出澄清，不改变既有验收口径与工作安排。</p>
+</section>
+</body>
+</html>
