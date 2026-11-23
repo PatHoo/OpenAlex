@@ -68,6 +68,19 @@
   .small{font-size:12px}
   .note{border-left:3px solid var(--warn);background:var(--warn-soft);padding:10px 12px;border-radius:0 8px 8px 0;color:#e3b341;font-size:12.5px;margin:12px 0}
   .note.blue{border-color:var(--accent);background:var(--accent-soft);color:#a5c8ff}
+  /* 客户交付维度 */
+  .wb-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px}
+  .wb-group{margin:20px 0 10px;font-size:13px;color:var(--accent);font-weight:600;border-left:3px solid var(--accent);padding-left:10px}
+  .wb-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  @media(max-width:900px){.wb-grid{grid-template-columns:1fr}}
+  .wb-item{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 15px;box-shadow:var(--shadow)}
+  .wb-item h4{margin:0 0 6px;font-size:13.5px;display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .wb-meta{font-size:11.5px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  .wb-desc{font-size:11.5px;color:var(--muted);margin-bottom:8px}
+  .wb-prev{max-height:210px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  .wb-prev table{font-size:11px}
+  .wb-prev th,.wb-prev td{padding:4px 7px;white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis}
+  .wb-prev th{background:#1c2230}
   .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
   select,input[type=text],textarea{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;background:#0f141b;color:var(--ink);font-size:13px}
   textarea{width:100%;min-height:190px;resize:vertical;font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}
@@ -131,6 +144,7 @@
   <button data-tab="cohort">队列证据</button>
   <button data-tab="literature">文献模块</button>
   <button data-tab="localtools">本地软件协同</button>
+  <button data-tab="deliverable">客户交付维度</button>
   <button data-tab="export">数据导出</button>
 </nav>
 
@@ -290,12 +304,33 @@
     </div>
   </section>
 
+  <section class="tab" id="tab-deliverable">
+    <h2>客户认可维度的落地：26 个工作表逐项对齐</h2>
+    <div class="note blue">
+      <b>结论先行</b>：客户认可的《1030版_新三学者基线与增量对照数据.xlsx》共 <b>26 个工作表</b>，其维度——身份映射、D·I·S → M1–M8 分类、C1–C5 迁移事件、逐人轨迹、外部证据、请求留痕、规则测试——已全部落到关系库与平台。本页按原表结构逐 sheet 展示，并提供<b>同结构 Excel 下载</b>：表头与客户认可版逐格一致，数据取自数据库真实成果，不是重新设计维度。
+    </div>
+    <div class="wb-head" id="wb-downloads"></div>
+    <div class="grid g4" id="wb-kpis"></div>
+    <div class="card" style="margin-top:16px">
+      <div class="toolbar" style="margin:0">
+        <label class="small muted" for="wb-filter">筛选工作表</label>
+        <input type="text" id="wb-filter" placeholder="按名称 / 维度 / 来源表筛选" style="min-width:280px">
+        <span class="small muted" id="wb-count"></span>
+      </div>
+    </div>
+    <div id="wb-groups"></div>
+    <div class="note">
+      口径说明：当前在线展示取 <b>1,000 人试跑（A_1000_v1）</b>；明细 sheet 超过 3,000 行的部分为抽样展示，完整数据见下载的 Excel 或本地数据库。<b>三人小样版与客户认可版逐格同口径</b>，可用于逐项核对。事件年份多为署名代理年；正式分类留空、DID 只作流程验证等边界声明保持不变。
+    </div>
+  </section>
+
   <section class="tab" id="tab-export">
     <h2>数据与报告导出</h2>
     <div class="grid g3">
       <div class="card"><h3>平台快照</h3><p class="small muted">聚合后的 JSON，用于复算本平台全部图表。</p><a class="btn" href="data/snapshot.json" download>下载 snapshot.json</a></div>
       <div class="card"><h3>DID 可视化 CSV</h3><p class="small muted">由 WP16 导出的聚类稳健估计与逐年效应。</p><a class="btn" href="../pipeline/data/batch_001/did_robust_estimate.csv" download>估计结果 CSV</a><br><br><a class="btn" href="../pipeline/data/batch_001/did_robust_annual_effect.csv" download>逐年效应 CSV</a></div>
       <div class="card"><h3>证据审计</h3><p class="small muted">外部出生国证据逐条 URL 与原文摘录。</p><a class="btn" href="../pipeline/data/batch_001/external_birth_evidence.csv" download>证据审计 CSV</a></div>
+      <div class="card"><h3>客户认可维度工作簿</h3><p class="small muted">26 个工作表，表头与 1030 版逐格一致，数据取自分析层数据库。</p><a class="btn" href="download/新三学者基线与增量对照数据_数据库复现版.xlsx" download>三人小样复现版</a><br><br><a class="btn" href="download/学者流动分析成果_1000人试跑版.xlsx" download>1,000 人试跑版</a></div>
     </div>
     <div class="note">上述 CSV 位于本地数据目录，部署到公网时请确认是否包含可公开信息；本平台不上传任何数据。</div>
   </section>
@@ -315,9 +350,11 @@
 </div>
 
 <script src="data/snapshot.js"></script>
+<script src="data/workbook.js"></script>
 <script>
 "use strict";
 const S = window.OA_SNAPSHOT;
+const W = window.OA_WORKBOOK || null;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -728,6 +765,7 @@ const DEMO_STEPS=[
   {tab:"cohort",title:"中国背景候选与证据",text:"队列由姓名拼音、中国机构署名和 2017 在美状态生成，只是算法候选。外部证据逐条留存公开来源 URL 与原文；身份未匹配者一律不进 treated。cohort_member.birth_country 保持 NULL，公开履历不等于官方出生证明。"},
   {tab:"literature",title:"文献模块",text:"第二期文献板块先做可闭环能力：粘贴 BibTeX，或加载 24 条 OpenAlex 真实题录（单库）→ 自动标签分类 → 检索 → GB/T 7714 / APA / MLA 转换导出，数据只存本机浏览器。跨库语义检索需合法授权数据源，demo 明确标注单库来源，不以单库冒充跨库。"},
   {tab:"localtools",title:"本地软件协同与执行回传",text:"SPSS / Stata / ArcGIS 的调用方式已标准化：统一 CSV + 脚本模板。回传通道可上传本机软件真实输出 CSV 并展示；示例按钮载入的是平台标准库复算结果，已明确标注为模拟回传，不冒充软件实际运行。"},
+  {tab:"deliverable",title:"客户认可维度逐项落地",text:"客户认可的 1030 版 Excel 共 26 个工作表：身份映射、D·I·S→M1–M8 分类、C1–C5 事件、逐人轨迹、外部证据、请求留痕、规则测试。这些维度已全部落到关系库，本页按原表结构逐 sheet 在线展示，并提供表头逐格一致的 Excel 下载——三人小样版可与原表逐项核对，1,000 人试跑版是同一套维度的放大成果。"},
   {tab:"export",title:"导出与下一步",text:"所有图表都可由只读快照复算。第二期 demo 到此结束：热力/流线/三维已作为非地图视图加入，单库题录与回传通道已演示；真正未建设的是跨库授权检索、地图热力/流线/三维图层、软件执行自动回传与全量跑批。全量跑批还需确认 API 额度、磁盘预算与交付时间表。"}
 ];
 let demoIdx=0,demoTimer=null;
@@ -814,6 +852,76 @@ function generateBridgeNote(){
     "说明：脚本模板只读取标准 CSV 并生成频数/回归/要素类；若本机未安装对应软件，模板保留为可审计交付物，不伪造执行结果。"
   ].join("\n");
 }
+
+/* ---------- 客户交付维度：26 个工作表 ---------- */
+function wbCell(v){
+  if(v===null||v===undefined||v==="") return '<span class="muted">—</span>';
+  return esc(String(v).slice(0,80));
+}
+function wbPreview(s){
+  const cols=(s.columns||[]).slice(0,8);
+  const rows=(s.preview||[]).slice(0,8);
+  if(!rows.length) return '<div class="small muted" style="padding:8px">本表当前口径下无数据行（如实保留，不填充推测值）。</div>';
+  let h='<div class="wb-prev"><table><thead><tr>'+cols.map(c=>`<th>${esc(c)}</th>`).join("")+'</tr></thead><tbody>';
+  rows.forEach(r=>{
+    h+='<tr>'+cols.map((_,i)=>`<td title="${esc(r[i]==null?"":String(r[i]).slice(0,300))}">${wbCell(r[i])}</td>`).join("")+'</tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+function wbCard(s){
+  const badge=s.truncated?'<span class="pill warn">抽样展示</span>':'<span class="pill ok">全量</span>';
+  const key=(s.name+' '+(s.group||'')+' '+(s.source_tables||'')+' '+(s.description||'')).toLowerCase();
+  return `<div class="wb-item" data-wb-name="${esc(key)}">
+    <h4><span>${esc(s.name)}</span><span>${badge}</span></h4>
+    <div class="wb-meta"><span class="pill">${esc(s.group||'—')}</span>
+      <span>${n(s.exported_rows)} 行</span><span>${n(s.column_count)} 列</span></div>
+    <div class="wb-desc">来源：${esc(s.source_tables||'—')}　·　${esc(s.description||'')}</div>
+    ${wbPreview(s)}
+  </div>`;
+}
+function renderWorkbook(){
+  if(!W){
+    $("#wb-groups").innerHTML='<div class="note">未找到 <code>web/data/workbook.js</code>。请在本地运行 <code>pipeline/export_client_workbook.py</code> 生成索引。</div>';
+    $("#wb-count").textContent='索引未生成';
+    return;
+  }
+  const sheets=W.sheets||[];
+  $("#wb-downloads").innerHTML=(W.workbooks||[]).map(w=>
+    `<a class="btn" href="download/${encodeURIComponent(w.file)}" download="${esc(w.file)}">下载 · ${esc(w.label)}</a>`
+  ).join("")+'<span class="small muted">Excel 双击即开，26 个工作表表头与客户认可版逐格一致</span>';
+  const totalRows=sheets.reduce((a,s)=>a+(s.exported_rows||0),0);
+  const groups=(W.groups||[]).filter(g=>sheets.some(s=>s.group===g));
+  const srcCount=new Set(sheets.map(s=>s.source_tables).filter(Boolean)).size;
+  $("#wb-kpis").innerHTML=[
+    ["工作表", n(sheets.length), "与客户认可版同结构"],
+    ["维度类别", n(groups.length), "身份/分类/事件/轨迹/证据/留痕/测试"],
+    ["在线明细行", n(totalRows), "抽样展示，完整见 Excel"],
+    ["数据来源表", n(srcCount), "关系库分析层"],
+  ].map(([l,v,h])=>`<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="hint">${h}</div></div>`).join("");
+  const byGroup={}; sheets.forEach(s=>{(byGroup[s.group]=byGroup[s.group]||[]).push(s);});
+  $("#wb-groups").innerHTML=groups.map(g=>
+    `<div class="wb-group">${esc(g)}（${byGroup[g].length}）</div><div class="wb-grid">${byGroup[g].map(wbCard).join("")}</div>`
+  ).join("");
+  const cnt=sheets.length;
+  $("#wb-count").textContent=`共 ${cnt} 个工作表`;
+  $("#wb-filter").addEventListener("input",(e)=>{
+    const k=e.target.value.trim().toLowerCase();
+    let shown=0;
+    $$(".wb-item").forEach(el=>{
+      const hit=!k||el.dataset.wbName.includes(k);
+      el.style.display=hit?"":"none";
+      if(hit) shown++;
+    });
+    $$(".wb-group").forEach(el=>{
+      const grid=el.nextElementSibling;
+      const any=grid&&Array.from(grid.children).some(c=>c.style.display!=="none");
+      el.style.display=any?"":"none";
+      if(grid) grid.style.display=any?"":"none";
+    });
+    $("#wb-count").textContent=`显示 ${shown} / ${cnt} 个工作表`;
+  });
+}
+renderWorkbook();
 </script>
 </body>
 </html>

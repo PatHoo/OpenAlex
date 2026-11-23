@@ -4,7 +4,7 @@
 
 > **项目定义**：本仓库是「OpenAlex 科研分析平台」的工程与研究归档。平台由**科学家空间流动数据库**（合同标的研究子系统）、实验数据分析、文献管理、论文写作与本地化部署构成；「科学家空间流动数据库」是其中负责数据与证据地基的子系统，在合同与交付文档中沿用其正式名称。
 
-> **项目状态**：第一期方法可行性验证（Proof of Concept）已完成；1,000 人试跑已全量抓取并完成落库，队列筛选、外部出生国证据核查与 DID（含聚类稳健 SE）均已跑通。**第二期 Demo 已完成并发布在线**（深色主题，`web/platform.html`，见「在线演示」与「第二期建设进度」章节），提供统计分析、空间可视化、DID、队列证据、文献管理与本地软件协同；全部基于 1,000 人试跑快照，不代表全量交付。全量 10.5 万 / 20 万跑批、跨库文献检索、第三期论文写作与第四期本地化部署尚未实施。
+> **项目状态**：第一期方法可行性验证（Proof of Concept）已完成；1,000 人试跑已全量抓取并完成落库，队列筛选、外部出生国证据核查与 DID（含聚类稳健 SE）均已跑通。**第二期 Demo 已完成并发布在线**（深色主题，`web/platform.html`，见「在线演示」与「第二期建设进度」章节），提供统计分析、空间可视化、DID、队列证据、文献管理、本地软件协同与**客户交付维度（26 个工作表逐项对齐）**；全部基于 1,000 人试跑快照，不代表全量交付。全量 10.5 万 / 20 万跑批、跨库文献检索、第三期论文写作与第四期本地化部署尚未实施。
 
 ## 目录
 
@@ -106,18 +106,25 @@ OpenAlex/
 │   │   └── test_did_stats.py             # 聚类 SE/F 数值（13）
 │   ├── export_requests_sql.py            # 请求留痕导入数据库
 │   ├── export_platform_snapshot.py       # 第二期：导出平台聚合快照 → web/data/snapshot.*
+│   ├── export_client_workbook.py         # 按客户认可的 26-sheet 结构反向导出交付工作簿
 │   ├── export_local_tools.py             # 第二期：导出 SPSS/Stata/ArcGIS 数据与脚本模板
 │   └── data/batch_001/                   # 试跑产物（gitignored，不上传）
 ├── web/                              # 纯前端页面
 │   ├── index.html                        # 学者作品自助抓取网站（独立工具，已上线）
 │   ├── roster.txt                        # 预置名单（105,026 人，一行一姓名）
 │   ├── platform.html                     # 第二期科研分析平台 Demo（可 file:// 打开）
-│   └── data/snapshot.{js,json}           # 平台只读数据快照
+│   ├── data/snapshot.{js,json}           # 平台只读聚合快照
+│   ├── data/workbook.{js,json}           # 26-sheet 交付维度索引（含逐表预览）
+│   └── download/*.xlsx                   # 两份客户认可结构的 Excel 交付工作簿
 ├── deliver/                          # 本地软件协同数据与旧自助抓取遗留
 │   ├── local_tools/                      # 第二期：CSV + run_spss.sps / run_stata.do / arcgis_publish.py
 │   ├── fetch_service.py / self_serve.html / wp12_fetch.py  # 旧本地抓取方案（保留存档，线上以 web/ 为准）
 │   └── requirements.txt                  # 旧本地方案依赖（flask/requests/openpyxl）
 └── output/                           # 分析与交付物（见「文档分发边界」章节）
+    ├── client_workbook/                  # ✅ 对外：客户认可维度的交付工作簿 + 落地说明
+    │   ├── 新三学者基线与增量对照数据_数据库复现版.xlsx   # 三人小样，可逐格核对
+    │   ├── 学者流动分析成果_1000人试跑版.xlsx             # 同结构，1,000 人放大成果
+    │   └── 维度落地说明.md                                # 26 sheet → 数据库表映射与口径
     └── openalex_audit_20261121/
         ├── 第一期交付说明与待确认事项.md      # 对外文档源稿
         ├── 数据维度说明_致委托方.md           # 对外文档源稿（维度关系澄清）
@@ -257,6 +264,7 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
 | 智能统计分析 | 描述统计、相关/回归、方法推荐、操作留痕 | `platform.html`「统计分析总览」：KPI、M1–M8 分类、C1–C5 证据等级、事件年份曲线、结果摘要导出 | 交互式回归建模、AI 方法推荐、操作日志回写数据库 |
 | 空间可视化 | 专题地图、热力图、流线图、三维可视化 | 国家/地区流向（条形/**热力矩阵**/**流线关系**/**三维柱状**四种非地图视图）、机构 Top20、腾讯位置服务 GL 地图（含 WGS84→GCJ-02 转换）；合规底图，**未用 Leaflet/OSM** | 地图上的热力/流线/三维图层尚需配置 Key 后扩展；非地图视图不冒充地图图层；境外地图属非默认场景，Key 须自行申请并由后端代理 |
 | 本地软件协同 | 调度 SPSS / Stata / ArcGIS | `deliver/local_tools/`：标准 CSV + `run_spss.sps` / `run_stata.do` / `arcgis_publish.py` 模板；Demo 提供**执行回传通道**（上传本机输出 CSV 即展示），模拟回传明确标注来自平台标准库复算 | 模板只准备输入与调用方式；不远程调用软件，模拟回传不冒充软件实际运行 |
+| 客户认可维度 | 客户认可的 1030 版 Excel 全维度：身份映射 / D·I·S→M1–M8 / C1–C5 事件 / 逐人轨迹 / 证据 / 请求留痕 / 规则测试 | `platform.html`「客户交付维度」页签：按七类维度分组展示 26 个工作表、行数/列数/来源表/明细预览/筛选；`pipeline/export_client_workbook.py` 从数据库反向导出**表头逐格一致**的两份 Excel（三人小样复现版可逐格核对、1,000 人试跑版为同结构放大成果） | 明细超 3,000 行的 sheet 为抽样展示，完整数据见下载 Excel；跨库检索、地图图层与全量跑批不属本次范围 |
 | 实验数据分析（DID） | 2017–2018 中美科技战 DID 检验 | 系数森林图、逐年效应曲线、聚类稳健估计明细，均标注矛盾口径边界 | 全量后正式推断、匹配/权重、安慰剂检验 |
 | 文献板块 | 跨库语义检索、格式转换、云盘式存储/分类/即时调用 | BibTeX 导入 + **24 条 OpenAlex 真实题录（单库，快照自带）** → 自动标签 → 本地检索 → GB/T 7714 / APA / MLA 转换与导出（localStorage） | 跨库 API 检索、多用户云盘同步待合法授权；单库题录不冒充跨库 |
 | 论文写作（第三期） | 智能写作、结构辅助、Humanizer | 仅提供结果摘要文本导出作为过渡 | 属第三期，本次不建设 |
@@ -268,6 +276,9 @@ cd /mnt/c/Users/quith/Desktop/OpenAlex
 export PGPASSWORD=$(cat ~/.openalex_db_pass)
 $HOME/.venvs/openalex/bin/python pipeline/export_platform_snapshot.py
 $HOME/.venvs/openalex/bin/python pipeline/export_local_tools.py
+# 客户认可维度工作簿（两份，产物在 output/client_workbook/ 并同步到 web/download/）
+$HOME/.venvs/openalex/bin/python pipeline/export_client_workbook.py --scope sample --max-rows 0 --no-index
+$HOME/.venvs/openalex/bin/python pipeline/export_client_workbook.py --scope trial  --max-rows 3000
 ```
 
 然后用浏览器打开 `web/platform.html`（纯静态，可 `file://` 直接打开）。地图页需自行申请腾讯位置服务 Key 并替换 `platform.html` 中的 `TMAP_KEY` 占位符；不得把真实 Key 硬编码进公开前端。
@@ -280,10 +291,11 @@ $HOME/.venvs/openalex/bin/python pipeline/export_local_tools.py
 |------|-----------|------|
 | `stage3/第一期交付说明与待确认事项.docx` | ✅ **对外** | 一页纸交付说明：已完成工作 / 交付边界 / 6 项待甲方书面确认 / 建议下一步。语气是推动验收，已确认内部字样无残留。 |
 | `stage3/数据维度说明_致委托方.docx` | ✅ **对外** | 澄清"抓取工具＝原始层、1030 版样例＝分析层"的上下游关系，解释数据维度差异、后续衔接与两点待确认。用于回应客户对维度差异的疑问。 |
+| `output/client_workbook/` 下全部文件（两份 xlsx + 维度落地说明.md） | ✅ **对外** | 客户认可维度的实际交付成果：26 个工作表与原版表头逐格一致，附逐 sheet 映射与口径边界说明。 |
 | `internal/` 下全部文件（验收质疑清单 docx/html、organized_draft.md、materials_digest.md） | ❌ **仅内部，勿发** | 内部验收答辩底稿，已物理隔离到 `internal/` 子目录，不随对外资料包分发。 |
 | `第一期交付说明与待确认事项.md`、`stage2/第一期交付说明.html`、`数据维度说明_致委托方.md`、`stage2/数据维度说明.html` | 内部源稿 | 对外 docx 的 md 源稿与转换母版。 |
 
-**原则**：对外只发标注 ✅ 的两份 docx；标 ❌ 的文档一律留作内部资料，不随资料包外发。
+**原则**：对外只发标注 ✅ 的文档与交付工作簿；标 ❌ 的文档一律留作内部资料，不随资料包外发。`output/client_workbook/` 与 `output/openalex_audit_20261121/` 分属两个目录，打包对外资料时只取前者与 `stage3/` 的两份 docx，不要整目录打包 `output/`。
 
 ## 技术栈
 
