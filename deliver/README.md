@@ -50,8 +50,8 @@ deliver/
 ├── requirements.txt      # 依赖清单
 ├── 启动自助抓取.bat       # Windows 一键启动
 ├── start.sh              # macOS / Linux 一键启动
-├── preset/
-│   └── Table-S1-career-2017.xlsx   # 预置名单（105,026 名学者）
+├── preset/               # 预置名单目录（本地运行时，需自行放入下列 xlsx）
+│   # └─ Table-S1-career-2017.xlsx —— 105,026 名学者；原件在仓库 reference/ 下，不随分发包附带
 └── data/                 # 抓取结果输出目录
 ```
 

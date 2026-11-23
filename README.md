@@ -1,8 +1,10 @@
-# OpenAlex 科学家空间流动数据库
+# OpenAlex 科研分析平台
 
 **全球高被引学者的机构隶属与空间流动轨迹重建** — 数据基建 · 政策研究 · AI 科研工具平台
 
-> **项目状态**：第一期方法可行性验证（Proof of Concept）已完成；1,000 人试跑已全量抓取并完成落库，队列筛选、外部出生国证据核查与 DID（含聚类稳健 SE）均已跑通。**第二期建设已启动**：`web/platform.html` 提供统计分析、空间可视化、DID、队列证据、文献管理与本地软件协同 MVP（见 [第二期建设进度](#第二期建设进度2026-11-23)）。全量 10.5 万 / 20 万跑批、跨库文献检索、第三期论文写作与第四期本地化部署尚未实施。
+> **项目定义**：本仓库是「OpenAlex 科研分析平台」的工程与研究归档。平台由**科学家空间流动数据库**（合同标的研究子系统）、实验数据分析、文献管理、论文写作与本地化部署构成；「科学家空间流动数据库」是其中负责数据与证据地基的子系统，在合同与交付文档中沿用其正式名称。
+
+> **项目状态**：第一期方法可行性验证（Proof of Concept）已完成；1,000 人试跑已全量抓取并完成落库，队列筛选、外部出生国证据核查与 DID（含聚类稳健 SE）均已跑通。**第二期 Demo 已完成并发布在线**（深色主题，`web/platform.html`，见 [在线演示](#在线演示)与[第二期建设进度](#第二期建设进度2026-11-23)），提供统计分析、空间可视化、DID、队列证据、文献管理与本地软件协同；全部基于 1,000 人试跑快照，不代表全量交付。全量 10.5 万 / 20 万跑批、跨库文献检索、第三期论文写作与第四期本地化部署尚未实施。
 
 ## 目录
 
@@ -13,6 +15,8 @@
 - [技术架构](#技术架构)
 - [快速开始](#快速开始)
 - [项目状态](#项目状态)
+- [在线演示](#在线演示)
+- [第二期建设进度](#第二期建设进度2026-11-23)
 - [文档分发边界](#文档分发边界)
 - [技术栈](#技术栈)
 
@@ -87,24 +91,29 @@ OpenAlex/
 │   ├── wp15_external_evidence.py          # WP15：外部出生国证据（公开来源逐条留痕）+ 定案
 │   ├── wp16_did_robust.py                 # WP16：学者层聚类稳健 SE + 平行趋势联合 F 检验
 │   ├── dbutil.py                         # psql 封装（检查退出码）
-│   ├── fetch_service.py                  # 客户自助抓取服务层（key 内存化、断点、进度状态机）
-│   ├── fetch_server.py                   # 本地网页服务端（127.0.0.1，标准库 http.server）
-│   ├── self_serve.html                   # 客户自助抓取前端（单页，填 key→选名单→抓取→导出）
-│   ├── self_serve_README.md              # 客户使用说明（申请 key、启动、抓取口径、成本估算）
-│   ├── tests/test_pipeline_safety.py     # P0 静默丢数回归测试（7 项）
-│   ├── tests/test_wp11_classification.py # 8.5 分类口径回归测试（6 项）
-│   ├── tests/test_fetch_service.py       # 自助抓取服务层测试（8 项：名单解析/进度/预置子集）
+│   ├── cohort_rules.py                   # 队列筛选纯规则（姓名拼音/机构署名/在美面板）
+│   ├── external_evidence_rules.py        # 外部证据分级与 verdict 纯规则
+│   ├── external_evidence_seed.py         # 7 人公开来源证据种子（URL + 原文摘录）
+│   ├── did_stats.py                      # OLS + 聚类稳健 SE + Wald F（纯标准库）
+│   ├── tests/                            # 55 项 unittest 回归测试（不访问 API/DB）
+│   │   ├── test_pipeline_safety.py       # P0 静默丢数（7）
+│   │   ├── test_wp11_classification.py   # 8.5 分类口径（6）
+│   │   ├── test_cohort_did.py            # 队列与 DID（14）
+│   │   ├── test_external_evidence.py     # 证据分级与 7 人定案（15）
+│   │   └── test_did_stats.py             # 聚类 SE/F 数值（13）
 │   ├── export_requests_sql.py            # 请求留痕导入数据库
 │   ├── export_platform_snapshot.py       # 第二期：导出平台聚合快照 → web/data/snapshot.*
 │   ├── export_local_tools.py             # 第二期：导出 SPSS/Stata/ArcGIS 数据与脚本模板
 │   └── data/batch_001/                   # 试跑产物（gitignored，不上传）
 ├── web/                              # 纯前端页面
-│   ├── index.html                        # 客户自助抓取网站（已上线）
-│   ├── roster.txt                        # 预置名单
-│   ├── platform.html                     # 第二期科研分析平台 MVP
-│   └── data/snapshot.{js,json}           # 平台只读数据快照（可 file:// 打开）
-├── deliver/                          # 本地软件协同数据与模板
-│   └── local_tools/                      # CSV + run_spss.sps / run_stata.do / arcgis_publish.py
+│   ├── index.html                        # 学者作品自助抓取网站（独立工具，已上线）
+│   ├── roster.txt                        # 预置名单（105,025 行姓名）
+│   ├── platform.html                     # 第二期科研分析平台 Demo（可 file:// 打开）
+│   └── data/snapshot.{js,json}           # 平台只读数据快照
+├── deliver/                          # 本地软件协同数据与旧自助抓取遗留
+│   ├── local_tools/                      # 第二期：CSV + run_spss.sps / run_stata.do / arcgis_publish.py
+│   ├── fetch_service.py / self_serve.html / wp12_fetch.py  # 旧本地抓取方案（保留存档，线上以 web/ 为准）
+│   └── requirements.txt                  # 旧本地方案依赖（flask/requests/openpyxl）
 └── output/                           # 分析与交付物（见「文档分发边界」章节）
     └── openalex_audit_20261121/
         ├── 第一期交付说明与待确认事项.md      # 对外文档源稿
@@ -130,7 +139,7 @@ OpenAlex/
 
 - **PostgreSQL + PostGIS**：`schema.sql` 25 张表 + WP15/WP16 增量 4 张（外部出生证据、定案、稳健 DID 估计与逐年效应）覆盖身份、作品署名、机构地理、年度面板、事件证据分类、队列/DID 与请求日志。同一 schema 已导入两处——AGE 图容器（PG16）与原生落库（PG17:5432，承载 1,000 人试跑）。`rule_version` 进入事件/分类表唯一约束，A 轨以触发器锁定不可变。
 - **Apache AGE**：目标模式为 7 类节点 / 14 种边；三人小样投影实际实现 5 类节点 / 9 种边（暂不含 `Work`/`Alias` 节点及 `AUTHORED`/`SIGNED_AT`/`RENAMED_TO`/`IN_COHORT` 边）。时间作为 `AFFILIATED` 边属性、规则版本作版本属性。图随时可重建，不影响原始数据。
-- **分工**：统计判定（众数、占比、C2 抑制、阈值敏感性）全在 SQL；迁移轨迹、改名链、合作网络等路径查询走图；DID 回归导出到 pandas/statsmodels。
+- **分工**：统计判定（众数、占比、C2 抑制、阈值敏感性）全在 SQL；迁移轨迹、改名链、合作网络等路径查询走图；DID 回归用纯标准库 OLS + 聚类稳健 SE（`did_stats.py`）实现并导出可读 CSV，不依赖 pandas/statsmodels。
 
 ## 快速开始
 
@@ -221,9 +230,18 @@ docker exec -e PGPASSWORD="$OPENALEX_DB_PASSWORD" openalex-pg psql -U postgres -
 
 分析层边界：13,350 条事件无真实任职年份（签名为代理年），5 条 Confirmed 借用 3 人小样履历；八类分类依据原始 Word `科学家空间流动数据库建立操作1030.docx` 8.5.2 节，D/I 只认 Confirmed/Probable，阴性维度有 Possible 未决候选者 `formal_class` 留空（265 人）。WP13 按姓名拼音 + 中国机构署名 + 2017 在美面板生成"中国背景候选"（7 high / 104 low），不写 `birth_country`。WP15 对 7 名 high 逐人核对公开来源（机构官网/CV/维基/百科，每条留 URL 与原文）：4 人 verified（Yang Peidong / Zhu Jian-Kang / Hu Frank B. / Peng Fang Z.）、1 人 probable（Sun Shouheng，官方 CV 载川大本科+南大硕士但无出生地原文）、1 人算法假阳性（Joseph Wang，UCSD 官方与维基载 Technion 博士、全美职业，无中国段）、1 人身份未定（Jie Liu，B 级消歧+机构空白+同名众多）。`cohort_external_review.eligible_treated` 只放行前 5 人。WP14 v2 据此重建 DID（3,359 组-年，5 treated / 428 control）；WP16 加学者层聚类 CR1 SE 与平行趋势联合 F 检验。结果：聚类 2x2 下 `moves_any` +0.155（SE 0.055、p 0.005）但事件研究 post 均值 +0.154（p 0.35）不显著、逐年 lag 系数跳跃，两者矛盾；`cn_link` 的 lead 协方差退化（处理组二值变量零方差），F 检验降级标注为非真 F。**treated 仅 5 人、聚类小簇偏倚，全部结论只证明流程可跑，不能作政策解读**。运行顺序、断点续跑、回归测试、额度自查与全部踩坑详见 `pipeline/README.md`。
 
+## 在线演示
+
+第二期 Demo 已发布为在线应用（深色主题，2026-11-23），访问须带 `sharecode`。**分享链接（含 sharecode）由项目负责人通过内部渠道单独分发，不写入公开仓库**——提交到公开 Git 仓库等于让任何人都能访问，与该应用的访问控制初衷相悖。
+
+- Demo 入口为 `/web/platform.html`；根路径打开的是**学者作品自助抓取**工具，不是本 Demo。未带 sharecode 的路径返回 403。
+- 重新发布时须同步更新本地 `deploy_phase2/` 与线上应用；Demo 与自助抓取共用同一个已发布应用，注意不要互相覆盖。
+- 地图 Key 未在公开前端硬编码，需自行申请腾讯位置服务 Key 并由后端代理；境外属非默认场景。
+- 本地可用 `file://` 直接打开 `web/platform.html`，无需联网或 sharecode，适合离线演示。
+
 ## 第二期建设进度（2026-11-23）
 
-依据原始需求清单，第二期范围＝**实验数据分析板块**＋**文献板块**。本次已启动并落地一版可离线运行的 MVP，全部基于 1,000 人试跑数据，**不冒充全量交付**：
+依据原始需求清单，第二期范围＝**实验数据分析板块**＋**文献板块**。已落地一版可离线运行、也已上线演示的 Demo，默认深色主题（打印/导出 PDF 时自动回退浅色），全部基于 1,000 人试跑数据，**不冒充全量交付**：
 
 | 模块 | 合同要求 | 本次已实现 | 未完成 / 边界 |
 |------|----------|------------|---------------|
@@ -264,7 +282,8 @@ $HOME/.venvs/openalex/bin/python pipeline/export_local_tools.py
 |------|------|
 | 抓取 | Python (requests/httpx)、OpenAlex API、ROR、ORCID、Crossref |
 | 存储 | PostgreSQL 17（原生落库）+ PostgreSQL 16 + PostGIS / Apache AGE（图容器） |
-| 计算 | pandas/polars、statsmodels/linearmodels (DID)、pytest |
+| 计算 | Python 标准库为主：DID 用纯标准库 OLS + 聚类稳健 SE（`did_stats.py`，不依赖 numpy/statsmodels） |
+| 测试 | Python unittest（55 项静态回归，不访问 API/数据库） |
 | 可视化 | 原生 SVG 图表 + 腾讯位置服务 GL JS（合规底图；禁止 Leaflet/OSM 直连境外瓦片） |
 | 交付 | Word、LaTeX、Zotero/BibTeX、SPSS/Stata/ArcGIS 脚本模板、Docker |
 

@@ -604,7 +604,7 @@ function generateReport(){
   const cross=S.country_flows.filter(r=>r.cross_border).slice(0,5).map(r=>`${r.from_country}→${r.to_country}（${n(r.total)}）`).join("、");
   const did=S.did_estimates.find(r=>r.outcome==="moves_any"&&r.specification==="2x2");
   const txt=[
-    "OpenAlex 科学家空间流动数据库 · 结果摘要（自动生成，需人工复核）",
+    "OpenAlex 科研分析平台 · 结果摘要（自动生成，需人工复核）",
     "",
     "1. 数据规模：本次快照基于 1,000 人试跑，定案学者 "+n(S.summary.scholars)+" 人，去重作品 "+n(S.summary.works)+" 篇，署名 "+n(S.summary.authorships)+" 条，覆盖机构 "+n(S.summary.institutions)+" 家。该规模仅用于方法验证，不代表全量交付。",
     "",

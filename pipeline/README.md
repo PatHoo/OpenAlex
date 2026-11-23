@@ -89,8 +89,8 @@ export OPENALEX_API_KEY='你的key'
 | `tests/test_pipeline_safety.py` | — | P0 静默丢数回归测试（7 项） | 全通过 |
 | `tests/test_wp11_classification.py` | — | 8.5 分类口径回归测试（6 项，静态） | 全通过 |
 | `tests/test_cohort_did.py` | — | 队列与 DID 口径回归测试（14 项，静态） | 全通过 |
-| `tests/test_external_evidence.py` | — | 证据分级与 7 人定案回归（12 项，静态） | 全通过 |
-| `tests/test_did_stats.py` | — | 聚类 SE/F 数值回归（10 项，静态） | 全通过 |
+| `tests/test_external_evidence.py` | — | 证据分级与 7 人定案回归（15 项，静态） | 全通过 |
+| `tests/test_did_stats.py` | — | 聚类 SE/F 数值回归（13 项，静态） | 全通过 |
 | `export_requests_sql.py` | — | 请求留痕 JSONL → api_request 表 | 幂等导入 |
 | `export_platform_snapshot.py` | 第二期 | PG17 只读导出平台聚合快照 | `web/data/snapshot.{js,json}` |
 | `export_local_tools.py` | 第二期 | 导出 SPSS/Stata/ArcGIS 标准 CSV 与脚本模板 | `deliver/local_tools/` |
@@ -284,6 +284,6 @@ bash ~/oa_quota.sh
 1. **外部证据人工复核**：WP15 已对 7 名 high 逐条核对公开来源并定案（5 eligible），但公开履历≠官方出生证明。需人工抽样复核 `external_birth_evidence.csv` 的 URL 与原文，并复核 104 名 low 与 265 名分类不确定者；`cohort_member.birth_country` 仍保持 NULL。
 2. **全量后正式 DID 推断**：1000 人 treated=5，聚类小簇偏倚、两套口径矛盾，只够跑通流程。全量后用 `did_panel.csv` 在 statsmodels/linearmodels 做学者层聚类稳健 SE，补匹配/权重、安慰剂检验；WP16 已提供纯标准库的聚类 SE 与联合平行趋势 F 作为可复核基线。
 3. **265 人分类不确定复核**：阴性维度有 Possible 未决候选者 `formal_class` 留空，需人工核验候选事件后定类；Perdew 式"自动 I=1 vs 人工 I=0"的分歧需统一口径。
-4. **可视化与 Agent 平台**：第二期 MVP 已落地 `web/platform.html`（统计总览、国家流向、机构分布、DID、队列、文献管理、本地软件协同入口）与 `pipeline/export_platform_snapshot.py`、`pipeline/export_local_tools.py`；数据快照由 PG17 只读导出，不含 API key。底图已选腾讯位置服务 GL JS（合规），境外范围属非默认场景需用户自备 Key 并由后端代理；热力/流线/三维、跨库文献检索与大模型写作尚未建设。
+4. **可视化与 Agent 平台**：第二期 Demo 已完成并上线（`web/platform.html`，深色主题，含 8 步演示导览），提供统计总览、国家流向（条形/热力矩阵/流线关系/三维柱状四种**非地图**视图）、机构分布、DID、队列证据、文献管理与本地软件协同执行回传入口；配套 `pipeline/export_platform_snapshot.py`、`pipeline/export_local_tools.py`，数据快照由 PG17 只读导出、不含 API key。Demo 与自助抓取共用同一在线应用，分享链接见根 README「在线演示」。底图已选腾讯位置服务 GL JS（合规），境外范围属非默认场景需用户自备 Key 并由后端代理；**地图上的**热力/流线/三维图层、跨库文献检索与大模型写作尚未建设（非地图的同名视图已实现，勿混淆）。
 5. **AGE 图投影**：1000 人数据尚未投影；目标 7 类节点/14 种边，现有小样仅 5 类/9 种。
 6. **全量 105,027 人**：地基与分析层脚本已就绪，但受 API 额度（$1/天/key）与磁盘（works.jsonl 全量估 ~230G）约束，尚未启动。

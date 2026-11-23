@@ -1,7 +1,7 @@
 # 科学家空间流动数据库：关系库 + Apache AGE 图模式设计
 
 版本：v1.1 · 2026-11-21（修复文档与可执行脚本不一致）
-适用范围：OpenAlex 高被引科学家机构隶属—空间流动数据库，第一期（数据地基）与第二期（事件引擎）
+适用范围：OpenAlex 科研分析平台 · 科学家空间流动数据库子系统。此处「第一期/第二期」为**技术施工顺序**（第一期＝数据地基、第二期＝事件引擎），与合同的四期付款分期（第二期＝实验数据分析＋文献）不是同一套口径，勿混用。
 配套脚本：`schema.sql`（本文所有 DDL 的可执行版本）、`三人小样_seed.sql`、`三人小样_AGE投影.sql`、`verify_poc.sql`（导入后核对）
 
 > v1.1 修复：表数量 18→22；C5 消解 SQL 改用真实的 `from_alias_id` → `institution_alias.raw_name` 连接；`event_evidence.criterion` 枚举、`class_rule` / `mobility_class` 主键描述对齐 DDL；明确"目标图模式"与"小样已实现图模式"的差异；`drop_graph` 重建增加存在性判断。
