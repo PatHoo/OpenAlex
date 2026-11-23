@@ -19,3 +19,6 @@ Thumbs.db
 
 # WorkBuddy 部署标记文件
 .wbapp_*.genie
+
+# 在线发布用的临时快照目录（内容由 pipeline 导出脚本再生成）
+deploy_phase2/
