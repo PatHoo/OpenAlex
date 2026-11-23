@@ -307,6 +307,7 @@
       <div class="card" id="step-export">
         <div class="card-head"><div class="step-no">4</div><h2>结果与导出</h2></div>
         <div class="export-grid">
+          <div class="export-item" data-kind="workscsv"><div class="fi">📊</div><div><div class="fn">作品明细表 works.csv</div><div class="fs">Excel 可直接打开的表格</div></div></div>
           <div class="export-item" data-kind="works"><div class="fi">📄</div><div><div class="fn">作品 works.jsonl</div><div class="fs">每位学者的作品明细</div></div></div>
           <div class="export-item" data-kind="candidates"><div class="fi">🎯</div><div><div class="fn">候选 candidates.jsonl</div><div class="fs">WP1 检索候选学者</div></div></div>
           <div class="export-item" data-kind="checkpoint"><div class="fi">💾</div><div><div class="fn">断点 checkpoint.json</div><div class="fs">续跑进度快照</div></div></div>
@@ -790,10 +791,48 @@ function download(filename, content, mime){
     if(a.parentNode) a.parentNode.removeChild(a);
   }, 10000);
 }
+
+/* CSV 单元格转义：含逗号/引号/换行时用双引号包裹，内部引号翻倍 */
+function csvCell(v){
+  let s = (v===null || v===undefined) ? "" : String(v);
+  s = s.replace(/[\r\n]+/g, " ").trim();
+  if(/[",]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+/* 作品明细表 → CSV：一行一个作品，列面向客户阅读 */
+function worksToCSV(){
+  const head = ["序号","src_id","名单姓名","匹配学者","OA作者ID","作品标题","DOI","发表年份","类型","被引数","期刊/来源","机构","作者"];
+  const nameOf = {};  roster.forEach(s=> nameOf[String(s.src_id)] = s.authfull);
+  const matchedOf = {}; for(const k in checkpoint){ if(checkpoint[k] && checkpoint[k].matched_name) matchedOf[k]=checkpoint[k].matched_name; }
+  const rows = works.map((item, i)=>{
+    const w = item.work || {};
+    const src = String(item.src_id);
+    // 来源期刊
+    let venue = "";
+    try { venue = (w.primary_location && w.primary_location.source && w.primary_location.source.display_name) || ""; } catch(e){}
+    // 机构：从所有 authorships 的 institutions 去重拼接
+    let insts = [];
+    try {
+      (w.authorships||[]).forEach(a=> (a.institutions||[]).forEach(ins=>{ if(ins && ins.display_name) insts.push(ins.display_name); }));
+    } catch(e){}
+    insts = [...new Set(insts)];
+    // 作者
+    let authors = [];
+    try { (w.authorships||[]).forEach(a=>{ if(a.author && a.author.display_name) authors.push(a.author.display_name); }); } catch(e){}
+    return [ i+1, src, nameOf[src]||"", matchedOf[src]||"", item.oa_author_id||"",
+      w.title||"", (w.doi||"").replace(/^https?:\/\/doi\.org\//,""), w.publication_year||"",
+      w.type||"", w.cited_by_count||0, venue, insts.join("; "), authors.join("; ") ];
+  });
+  const lines = [head, ...rows].map(r=> r.map(csvCell).join(","));
+  return "\ufeff" + lines.join("\r\n");   // BOM：Excel 双击打开中文不乱码
+}
 document.querySelectorAll(".export-item").forEach(el=>{
   el.onclick = ()=>{
     const kind = el.dataset.kind;
-    if(kind==="works"){
+    if(kind==="workscsv"){
+      if(!works.length){ toast("暂无作品数据","err"); return; }
+      download("作品明细表.csv", worksToCSV(), "text/csv;charset=utf-8");
+    } else if(kind==="works"){
       if(!works.length){ toast("暂无作品数据","err"); return; }
       download("works.jsonl", works.map(w=>JSON.stringify(w)).join("\n"));
     } else if(kind==="candidates"){
