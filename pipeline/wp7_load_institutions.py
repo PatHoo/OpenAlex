@@ -12,10 +12,12 @@
 """
 import json
 import os
-import subprocess
 from pathlib import Path
 
 import pycountry
+
+from config import pg_path
+from dbutil import query_psql, run_psql
 
 DATA = Path(__file__).parent / "data" / "batch_001"
 TMP = Path(os.environ.get("TEMP", "/tmp"))
@@ -30,23 +32,6 @@ ZH = {
     "HK": "中国香港", "MO": "中国澳门", "IL": "以色列", "PL": "波兰", "PT": "葡萄牙",
     "IE": "爱尔兰", "NZ": "新西兰", "MX": "墨西哥", "AR": "阿根廷", "TR": "土耳其",
 }
-
-
-def wsl_path(p: Path) -> str:
-    return "/mnt/c" + str(p).replace("C:\\", "/").replace("\\", "/")
-
-
-def run_psql(sql: str, tail: int = 15, show: bool = True) -> str:
-    f = TMP / "wp7.sql"
-    f.write_text(sql, encoding="utf-8")
-    cmd = ["wsl", "-e", "bash", "-c",
-           f'PASS=$(cat ~/.openalex_db_pass); PGPASSWORD="$PASS" psql -h 127.0.0.1 '
-           f'-p 5432 -U postgres -d openalex -v ON_ERROR_STOP=1 -f {wsl_path(f)} 2>&1 | tail -{tail}']
-    r = subprocess.run(cmd, capture_output=True, text=True)
-    out = r.stdout or r.stderr
-    if show:
-        print(out)
-    return out
 
 
 def esc(s: str) -> str:
@@ -82,14 +67,12 @@ def main():
     seed_merge = []
     f = TMP / "wp7_seed.sql"
     # 先读种子机构名
-    r = subprocess.run(
-        ["wsl", "-e", "bash", "-c",
-         'PASS=$(cat ~/.openalex_db_pass); PGPASSWORD="$PASS" psql -h 127.0.0.1 -p 5432 '
-         '-U postgres -d openalex -tAc "SELECT institution_id || chr(124) || canonical_name '
-         'FROM institution WHERE ror_id IS NULL;"'],
-        capture_output=True, text=True)
+    seed_query = query_psql(
+        "SELECT institution_id || chr(124) || canonical_name "
+        "FROM institution WHERE ror_id IS NULL;"
+    )
     seeds = []
-    for line in r.stdout.strip().split("\n"):
+    for line in seed_query.split("\n"):
         if "|" in line:
             iid, nm = line.split("|", 1)
             seeds.append((int(iid), nm))
@@ -120,7 +103,7 @@ def main():
     inst_sql = f"""
 BEGIN;
 CREATE TEMP TABLE inst_stage(ror_id TEXT, canonical_name TEXT, country_code CHAR(2));
-\\copy inst_stage FROM '{wsl_path(stage)}' WITH (FORMAT csv, NULL '')
+\\copy inst_stage FROM '{pg_path(stage)}' WITH (FORMAT csv, NULL '')
 INSERT INTO institution(ror_id,canonical_name,country_code)
 SELECT ror_id,canonical_name,country_code FROM inst_stage
 ON CONFLICT (ror_id) DO NOTHING;
@@ -147,7 +130,7 @@ COMMIT;
     alias_sql = f"""
 BEGIN;
 CREATE TEMP TABLE alias_stage(raw_name TEXT, ror_id TEXT, n INT);
-\\copy alias_stage FROM '{wsl_path(alias_stage)}' WITH (FORMAT csv)
+\\copy alias_stage FROM '{pg_path(alias_stage)}' WITH (FORMAT csv)
 INSERT INTO institution_alias(raw_name,institution_id,status,evidence_url)
 SELECT a.raw_name, i.institution_id, 'confirmed', 'openalex_affiliations'
 FROM alias_stage a JOIN institution i ON i.ror_id=a.ror_id

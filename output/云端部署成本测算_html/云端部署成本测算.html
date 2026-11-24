@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="docx-page-size" content="A4">
+<title>云端部署方案与成本测算</title>
+<style>
+:root {
+  --ff-body: "Microsoft YaHei", "微软雅黑", "SimSun", "宋体", sans-serif;
+  --ff-heading: "Microsoft YaHei", "微软雅黑", "SimHei", "黑体", sans-serif;
+  --fs-h1: 18pt;
+  --fs-h2: 14pt;
+  --fs-body: 12pt;
+  --fs-small: 10.5pt;
+  --lh-body: 1.6;
+  --lh-heading: 1.35;
+  --fw-bold: 700;
+  --fw-normal: 400;
+  --color-primary: #1F4E79;
+  --color-accent: #2E75B6;
+  --color-text: #212121;
+  --color-muted: #595959;
+  --color-border: #BFBFBF;
+  --color-head-bg: #DCE6F1;
+  --color-alt-bg: #F2F6FB;
+  --color-highlight: #C00000;
+  --spacing-paragraph: 0.6em;
+  --spacing-section: 1.6em;
+  --spacing-block: 1em;
+  --page-content-width: var(--layout-contentWidth, 15.6cm);
+  --margin-page: var(--layout-margin, 2.4cm);
+}
+@page { margin: var(--margin-page); }
+body {
+  font-family: var(--ff-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--color-text);
+  max-width: var(--page-content-width);
+  margin-left: auto;
+  margin-right: auto;
+}
+.doc-title {
+  font-family: var(--ff-heading);
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-bold);
+  color: var(--color-primary);
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 0.4em;
+}
+.doc-meta {
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: var(--spacing-section);
+  line-height: var(--lh-body);
+}
+h1 {
+  font-family: var(--ff-heading);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-bold);
+  color: var(--color-primary);
+  line-height: var(--lh-heading);
+  margin-top: var(--spacing-section);
+  margin-bottom: var(--spacing-block);
+  padding-bottom: 0.25em;
+  border-bottom: 2px solid var(--color-accent);
+}
+h2 {
+  font-family: var(--ff-heading);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-bold);
+  color: var(--color-accent);
+  line-height: var(--lh-heading);
+  margin-top: var(--spacing-block);
+  margin-bottom: 0.5em;
+}
+p {
+  font-family: var(--ff-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  text-indent: 2em;
+  margin-top: 0;
+  margin-bottom: var(--spacing-paragraph);
+  text-align: justify;
+}
+p.no-indent { text-indent: 0; }
+strong { font-weight: var(--fw-bold); }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.4em;
+  margin-bottom: var(--spacing-block);
+  font-size: var(--fs-small);
+}
+caption {
+  caption-side: top;
+  text-align: left;
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  margin-bottom: 0.3em;
+}
+th {
+  background-color: var(--color-head-bg);
+  color: var(--color-primary);
+  font-weight: var(--fw-bold);
+  text-align: center;
+  border: 1px solid var(--color-border);
+  padding: 6px 8px;
+  line-height: var(--lh-body);
+}
+td {
+  border: 1px solid var(--color-border);
+  padding: 5px 8px;
+  line-height: var(--lh-body);
+  text-align: left;
+  vertical-align: middle;
+}
+td.num { text-align: right; }
+td.center { text-align: center; }
+tr.alt td { background-color: var(--color-alt-bg); }
+table.summary td.total { font-weight: var(--fw-bold); color: var(--color-primary); }
+ol, ul {
+  margin-top: 0;
+  margin-bottom: var(--spacing-block);
+  padding-left: 2em;
+}
+li {
+  font-family: var(--ff-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  margin-bottom: 0.4em;
+}
+.note {
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  text-indent: 0;
+}
+a { color: var(--color-accent); }
+</style>
+</head>
+<body>
+
+<p class="doc-title">云端部署方案与成本测算</p>
+<p class="doc-meta">编制日期：2026 年 11 月 24 日<br>价格口径：腾讯云中国内地地域活动首年价（取区间中位），API 费按 1 美元 ≈ 7.1 元人民币折算。实际报价以云厂商控制台为准。</p>
+
+<h1>一、结论摘要</h1>
+<p>客户在线浏览网页的成本与学者人数基本无关——三种规模读取的都是同类静态页面（几百 KB）和下载文件（约 2 MB）。预算差异主要来自<strong>数据留存规模</strong>：是否把数据库与原始抓取文件一并放上云，并保留完整的重跑与复核能力。</p>
+<table class="summary">
+<caption>表 1　三档方案首年投入对比</caption>
+<thead>
+<tr><th>方案</th><th>数据规模</th><th>首年投入</th><th>次年起每年</th><th>核心配置</th></tr>
+</thead>
+<tbody>
+<tr><td class="center">方案 A｜试运行</td><td class="center">1,000 学者</td><td class="num total">约 ¥960</td><td class="num">约 ¥950</td><td class="center">4核16G / 200G SSD</td></tr>
+<tr class="alt"><td class="center">方案 B｜扩展</td><td class="center">5,000 学者</td><td class="num total">约 ¥1,170</td><td class="num">约 ¥1,100</td><td class="center">4核16G / 200G SSD</td></tr>
+<tr><td class="center">方案 C｜全量</td><td class="center">100,000 学者</td><td class="num total">约 ¥8,900</td><td class="num">约 ¥7,450</td><td class="center">8核16G + 500G 外挂 SSD</td></tr>
+</tbody>
+</table>
+<p>当前静态页面已可正常对外浏览，无需额外购置云主机。上云的价值在于<strong>数据自主可控、完整留存与可重复验证</strong>。</p>
+
+<h1>二、成本构成</h1>
+<p>费用分两类：一次性数据准备费，以及按年发生的运行托管费。</p>
+
+<h2>2.1　一次性数据准备费（OpenAlex API）</h2>
+<table>
+<caption>表 2　一次性数据准备费</caption>
+<thead>
+<tr><th>方案</th><th>预估请求量</th><th>费用</th><th>参考周期</th></tr>
+</thead>
+<tbody>
+<tr><td class="center">A</td><td class="num">1.1 万次</td><td class="num">约 ¥14</td><td class="center">1–2 天</td></tr>
+<tr class="alt"><td class="center">B</td><td class="num">5.4 万次</td><td class="num">约 ¥70</td><td class="center">约 5 天</td></tr>
+<tr><td class="center">C</td><td class="num">108 万次</td><td class="num">约 ¥1,400</td><td class="center">约 3–4 个月</td></tr>
+</tbody>
+</table>
+<p>费率为公开标准：检索类 $0.001/次、列表类 $0.0001/次。周期受服务商每日额度节奏影响；如需缩短，可增购额度。</p>
+
+<h2>2.2　年度运行托管费</h2>
+<table>
+<caption>表 3　年度运行托管费</caption>
+<thead>
+<tr><th>项目</th><th>方案 A</th><th>方案 B</th><th>方案 C</th></tr>
+</thead>
+<tbody>
+<tr><td>云主机</td><td>4核16G / 200G SSD，¥600–1,000/年</td><td>4核16G / 200G SSD，¥600–1,000/年</td><td>8核16G，¥1,600–2,100/年</td></tr>
+<tr class="alt"><td>数据存储</td><td>主机自带盘，¥0</td><td>主机自带盘，¥0</td><td>外挂 SSD 440–500 GB，¥4,400–5,000/年</td></tr>
+<tr><td>CDN 与备份</td><td>¥100–200/年</td><td>¥200–400/年</td><td>¥600–1,200/年</td></tr>
+<tr class="alt"><td><strong>年合计</strong></td><td><strong>¥700–1,200</strong></td><td><strong>¥800–1,400</strong></td><td><strong>¥6,600–8,300</strong></td></tr>
+</tbody>
+</table>
+<p>方案 C 的数据量约 440 GB（数据库约 210 GB + 原始抓取文件约 230 GB），超出主机自带盘容量，需单独配置外挂云盘。数据库采用主机自建方式，比托管数据库服务每年节省约一半费用；备份脚本已随项目交付。</p>
+
+<h2>2.3　首年总投入</h2>
+<table class="summary">
+<caption>表 4　首年总投入</caption>
+<thead>
+<tr><th>方案</th><th>数据准备（一次性）</th><th>运行托管（首年）</th><th>合计</th><th>次年起每年</th></tr>
+</thead>
+<tbody>
+<tr><td class="center">A</td><td class="num">¥14</td><td class="num">¥950</td><td class="num total">约 ¥960</td><td class="num">约 ¥950</td></tr>
+<tr class="alt"><td class="center">B</td><td class="num">¥70</td><td class="num">¥1,100</td><td class="num total">约 ¥1,170</td><td class="num">约 ¥1,100</td></tr>
+<tr><td class="center">C</td><td class="num">¥1,440</td><td class="num">¥7,450</td><td class="num total">约 ¥8,900</td><td class="num">约 ¥7,450</td></tr>
+</tbody>
+</table>
+<p class="note">（取各项区间中位值估算。）</p>
+
+<h1>三、数据留存口径</h1>
+<p>本项目按<strong>完整数据保留</strong>方案测算：<code>works.jsonl</code> 保留全部字段，不做精简。</p>
+<p>考虑是：原始数据是重跑与结果复核的依据。若按字段精简方案存储，全量数据可从约 230 GB 降至约 16 GB、每年节省约 ¥2,200，但后续若需新增分析维度或复核历史结果，将受限于当时保留的字段。完整保留避免了这一风险。</p>
+
+<h1>四、说明与边界</h1>
+<ol>
+<li><strong>当前成果规模：</strong>已交付的分析结果基于 1,000 学者抽样试跑（约占全量 105,026 人的 0.95%）。方案 C 是全量数据的容量规划，全量数据的采集与分析尚未执行，两者需分别验收。</li>
+<li><strong>数据时效性：</strong>重新采集时，数据源的消歧与检索排序可能与历史快照不同，结果是新的时点数据，而非原快照的逐字节复制。交付时应标注采集日期。</li>
+<li><strong>价格浮动：</strong>云主机活动价与标准价差异较大，续费价格可能高于首年；CDN 费用取决于实际下载量，与学者人数无关。</li>
+<li><strong>未包含项：</strong>域名注册、HTTPS 证书（可使用免费证书）、人工运维。</li>
+</ol>
+
+<h1>五、报价依据</h1>
+<ul>
+<li>腾讯云轻量应用服务器：https://cloud.tencent.com/document/product/1207/73452</li>
+<li>腾讯云云硬盘 CBS：https://cloud.tencent.com/document/product/213/17564</li>
+<li>腾讯云 COS 对象存储：https://www.qcloud.com/document/buy-guide/1513/64028</li>
+<li>腾讯云 CDN：https://cloud.tencent.com/developer/article/2790741</li>
+<li>OpenAlex 定价与额度：https://help.openalex.org/access/pricing</li>
+</ul>
+
+</body>
+</html>

@@ -154,7 +154,7 @@ INSERT INTO did_annual_effect
      t_stat, n_treated, n_control, note)
 SELECT '{RV}', '{CRV}', outcome, year,
        round(coef::numeric,6), round(se::numeric,6),
-       round((coef/se)::numeric,6), n_treated, n_control,
+       round((coef/NULLIF(se,0))::numeric,6), n_treated, n_control,
        'event study vs {BASELINE_YEAR}; independent-cell SE, not clustered'
 FROM effect;
 COMMIT;
@@ -209,7 +209,7 @@ INSERT INTO did_estimate
      std_error, t_stat, n_treated, n_control, n_obs, pretrend_coef,
      parallel_trend_passed, note)
 SELECT '{RV}', '{CRV}', 'did_2x2', d.outcome,
-       round(d.coef::numeric,6), round(d.se::numeric,6), round((d.coef/d.se)::numeric,6),
+       round(d.coef::numeric,6), round(d.se::numeric,6), round((d.coef/NULLIF(d.se,0))::numeric,6),
        c.n_treated, c.n_control, c.n_obs, p.pretrend_coef, p.passed,
        'pre=2014-2017 post=2018-2021; treated=external-evidence eligible (verified/probable CN birth), v1 algorithm-high kept for comparison; independent-cell SE, descriptive only'
 FROM did d

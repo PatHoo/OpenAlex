@@ -103,9 +103,10 @@ class TestWP5CopyFailure(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             d = Path(td)
             self._make_data_dir(d)
-            failed = mock.Mock(returncode=1, stdout="", stderr="ERROR: copy failed")
+            # psql 调用已收敛到 dbutil.run_psql；失败以 RuntimeError 抛出
             with mock.patch.object(wp5, "DATA", d), \
-                 mock.patch.object(wp5.subprocess, "run", return_value=failed), \
+                 mock.patch.object(wp5, "run_psql",
+                                   side_effect=RuntimeError("ERROR: copy failed")), \
                  mock.patch.object(sys, "argv", ["wp5.py"]):
                 with self.assertRaises(SystemExit) as cm:
                     wp5.main()
@@ -119,9 +120,8 @@ class TestWP5CopyFailure(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             d = Path(td)
             self._make_data_dir(d)
-            ok = mock.Mock(returncode=0, stdout="INSERT 0 1", stderr="")
             with mock.patch.object(wp5, "DATA", d), \
-                 mock.patch.object(wp5.subprocess, "run", return_value=ok), \
+                 mock.patch.object(wp5, "run_psql", return_value="INSERT 0 1"), \
                  mock.patch.object(sys, "argv", ["wp5.py"]):
                 wp5.main()
             state = json.loads((d / "authorship_progress.json").read_text(encoding="utf-8"))

@@ -16,9 +16,10 @@
 """
 import argparse
 import os
-import subprocess
 import time
 from pathlib import Path
+
+from dbutil import run_psql
 
 TMP = Path(os.environ.get("TEMP", "/tmp"))
 
@@ -79,26 +80,6 @@ WHERE a.matched_institution_id IS NOT NULL AND i.institution_id IS NULL;
 SELECT count(DISTINCT scholar_id) AS scholars_with_inst
 FROM authorship WHERE matched_institution_id IS NOT NULL;
 """
-
-
-def wsl_path(p: Path) -> str:
-    return "/mnt/c" + str(p).replace("C:\\", "/").replace("\\", "/")
-
-
-def run_psql(sql: str, tail: int = 40) -> str:
-    f = TMP / f"wp8_{os.getpid()}.sql"
-    f.write_text(sql, encoding="utf-8")
-    # 不用 `| tail`：管道退出码是 tail 的，会把 psql 失败吞成成功
-    cmd = ["wsl", "-e", "bash", "-c",
-           f'PASS=$(cat ~/.openalex_db_pass); PGPASSWORD="$PASS" psql -h 127.0.0.1 '
-           f'-p 5432 -U postgres -d openalex -v ON_ERROR_STOP=1 -f {wsl_path(f)}']
-    r = subprocess.run(cmd, capture_output=True, text=True)
-    out = (r.stdout or "") + (r.stderr or "")
-    lines = out.splitlines()
-    print("\n".join(lines[-tail:]) if len(lines) > tail else out)
-    if r.returncode != 0:
-        raise RuntimeError(f"psql 失败（退出码 {r.returncode}）：\n{out[-2000:]}")
-    return out
 
 
 def main():

@@ -21,7 +21,7 @@
 
 > **polite pool 已废除（2026-02 起）**：`mailto=` 参数被忽略，所有真实调用必须带免费 API key。
 
-- **免费 key**：$1/天，**30 req/s**，支持 cursor 翻页；list 类请求（`/authors?search=`、`/works?filter=`）约 $0.0001/次，单实体查询免费。
+- **免费 key**：$1/天，**30 req/s**，支持 cursor 翻页；官方计费（2026-11）：`search`（`/authors?search=`）**$0.001/次**、`list+filter`（`/works?filter=`）**$0.0001/次**，单实体查询免费。新账号首 $1 按 $0.10/5min 节奏释放。
 - **匿名（无 key）**：与同 IP 共享 $0.10/天，翻页只能拿第一页，仅够极小样本验证。
   > **2026-11-22 实测**：匿名共享额度耗尽后，OpenAlex 已切换到新计费模型，响应可能是 **403**（而非标准 429），错误文案用 "exceeded / budget / quota" 而非精确 `code == "daily_budget"`。当前 `oa_client.py` 只精确匹配 `error_code == "daily_budget"`，若将来匿名跑批触发此路径会漏识别而进入退避重试。**跑批场景不受影响**（强制带 key，key 额度耗尽仍是标准 429 `daily_budget`）；受影响的是纯前端 `web/index.html`（已改按错误文案正则识别）。若未来要做匿名批量验证，需先按实际响应加固 `oa_client.py` 的额度识别。
 - **额度按账户/邮箱计，不按 key**：同一邮箱再申请返回 `409 account_exists`。换邮箱 = 独立 $1/天（本项目用两把 key 轮换绕过单日上限）。
@@ -42,8 +42,9 @@ export OPENALEX_API_KEY='你的key'
 - **抓取（wp12）**：Windows Python 3.13 或 WSL venv 均可。WSL 用隔离环境（Debian PEP668 禁止系统 pip）：
   ```bash
   /usr/bin/python3 -m venv $HOME/.venvs/openalex
-  $HOME/.venvs/openalex/bin/pip install requests openpyxl psycopg2-binary -i https://pypi.tuna.tsinghua.edu.cn/simple
+  $HOME/.venvs/openalex/bin/pip install requests openpyxl psycopg2-binary pycountry -i https://pypi.tuna.tsinghua.edu.cn/simple
   ```
+  > `pycountry` 供 wp7_load_institutions.py 把国家名映射成 ISO 码；缺它会在 wp7 导入机构时 `ModuleNotFoundError` 中断。
 - **落库（wp3–wp8）**：走 WSL 原生 PostgreSQL 17（端口 5432）。口令在 `~/.openalex_db_pass`（权限 600）。
   - wp3 用 `psycopg2` 直连；wp5–wp8 通过 `subprocess` 调 `psql`。均从环境变量 `PGPASSWORD` 取口令。
   - AGE 图容器另在端口 5433（仅图投影用，落库不涉及）。
@@ -146,6 +147,34 @@ $VENV wp14_did.py                                        # 建 did_panel v2 + �
 $VENV wp16_did_robust.py --dry-run                       # 看聚类 SE 与平行趋势 F，不写库
 $VENV wp16_did_robust.py                                 # 建稳健估计表 + 导出可视化 CSV
 ```
+
+### 1,000 人重跑执行脚本（`rerun_1000.py`）
+
+`works.jsonl` 等中间产物不在仓库里；若需重新抓一遍并用同一口径落库，用这个脚本一次串起
+「WP0 → WP1/WP2（双 key 轮换）→ WP3–WP16 → 重导出交付物」。它复用 `wp12_fetch` 的
+`checkpoint.json` 语义，失败停在当前学者，不写空候选/半截作品。
+
+```bash
+# 只抓取（推荐先跑完、核对 works.jsonl，再落库）
+OPENALEX_API_KEY_1=keyA OPENALEX_API_KEY_2=keyB OA_RATE=30 \
+  python -u rerun_1000.py --stage fetch
+
+# 抓取 + 落库 + 分析 + 导出（写库前自动 pg_dump 到 pipeline/data/backups/）
+OPENALEX_API_KEY_1=keyA OPENALEX_API_KEY_2=keyB OA_RATE=30 \
+  python -u rerun_1000.py --stage all
+
+# 3 人冒烟 / 只看计划 / 从零重跑（旧 batch 自动改名备份）
+OPENALEX_API_KEY_1=keyA python -u rerun_1000.py --stage fetch --limit 3
+python rerun_1000.py --stage fetch --dry-run
+python -u rerun_1000.py --stage fetch --fresh
+```
+
+- key 也可用 `OPENALEX_API_KEYS=keyA,keyB`；单把 key 时额度耗尽会暂停，换 key 或次日续跑。
+- 成本上限 `OA_COST_CAP_USD` 默认 **2.20 美元**，按官方口径在**请求发出前**计费闸门拦截
+  （`search` $0.001/次、`list+filter` $0.0001/次、`rate-limit` 免费），累计写在
+  `batch_001/cost_ledger.json`，跨续跑不重复计费。
+- 任何暂停（额度耗尽 / 成本超限 / 请求失败）都返回退出码 3，重跑同一条命令即可续抓。
+- 注意：重跑结果不是原快照的逐字节恢复——OpenAlex 消歧和检索排序会变，交付页面须标注新的抓取日期。
 
 **断点续跑与失败安全**：wp12 读 `checkpoint.json`、wp3 读 `import_progress.json`，已完成的自动跳过。请求失败（额度耗尽 / 网络重试耗尽 / 非限流 4xx / key 未激活）时 wp12 抛 `APIFetchFailed` 或 `APIBudgetExhausted`，停在**当前学者**——不写半截作品、不写空候选、不标记完成，下次续跑补抓。wp5 只有 COPY **成功后**才推进 offset 并清空 staging；失败时保留现场，同参重跑即可补批。
 

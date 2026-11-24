@@ -13,8 +13,9 @@
 import argparse
 import json
 import os
-import subprocess
 from pathlib import Path
+
+from dbutil import query_psql, run_psql
 
 DATA = Path(__file__).parent / "data" / "batch_001"
 DEC = DATA / "identity_decisions.jsonl"
@@ -68,13 +69,8 @@ def build_plan(src: dict, dec: list):
 
 
 def psql(sql: str) -> str:
-    """通过 WSL psql 执行 SQL，返回 stdout。"""
-    cmd = [
-        "wsl", "-e", "bash", "-c",
-        f'PGPASSWORD=$(cat ~/.openalex_db_pass) psql -h 127.0.0.1 -p 5432 '
-        f'-U postgres -d openalex -tAc {json.dumps(sql)}'
-    ]
-    return subprocess.run(cmd, capture_output=True, text=True).stdout.strip()
+    """执行查询并返回 stdout；WSL / 原生 Linux 由 dbutil 统一处理。"""
+    return query_psql(sql)
 
 
 def main():
@@ -142,14 +138,12 @@ END $$;
     tmp.write_text("\n".join(sql_lines), encoding="utf-8")
     print(f"SQL 已生成: {tmp}  ({len(sql_lines)} 行)")
 
-    # 通过 WSL 路径执行
-    wsl_path = "/mnt/c" + str(tmp).replace("C:\\", "/").replace("\\", "/")
-    cmd = ["wsl", "-e", "bash", "-c",
-           f'PGPASSWORD=$(cat ~/.openalex_db_pass) psql -h 127.0.0.1 -p 5432 '
-           f'-U postgres -d openalex -v ON_ERROR_STOP=1 -f {wsl_path} 2>&1 | tail -20']
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    # 不再用 `| tail`：管道退出码是 tail 的，会吞掉 psql 失败
     print("=== psql 输出 ===")
-    print(r.stdout or r.stderr)
+    try:
+        run_psql("\n".join(sql_lines), name="wp4_load", tail=20)
+    except RuntimeError as exc:
+        raise SystemExit(f"[FATAL] 定案落库失败：{exc}") from exc
 
 
 if __name__ == "__main__":

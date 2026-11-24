@@ -15,8 +15,8 @@ ROOT = Path(__file__).resolve().parent
 PRESET_XLSX = ROOT / "preset" / "Table-S1-career-2017.xlsx"
 PRESET_SHEET = "Career"
 
-# 限速：免费 key 10 req/s，主动压到 8 req/s 并逐请求记录 429，避免触发新账号限速。
-RATE_LIMIT_PER_SEC = float(os.environ.get("OA_RATE", "8"))
+# 限速：免费 key / prepaid 官方上限 30 req/s；实测遇 429 可下调 OA_RATE。
+RATE_LIMIT_PER_SEC = float(os.environ.get("OA_RATE", "30"))
 MAX_RETRIES = 5
 BACKOFF_BASE = 1.5  # 秒，指数退避
 

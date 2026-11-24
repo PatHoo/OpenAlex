@@ -1,7 +1,7 @@
 * OpenAlex 科学家流动数据库 — SPSS 语法模板（第二期：本地软件协同）
 * 读取标准化 CSV，输出频数表与交叉表；请在 SPSS Statistics 中打开运行。
 GET DATA /TYPE=TXT
-  /FILE='/mnt/c/Users/quith/Desktop/OpenAlex/deliver/local_tools/data/did_panel.csv'
+  /FILE='/mnt/c/Users/Administrator/Desktop/OpenAlex/deliver/local_tools/data/did_panel.csv'
   /DELIMITERS=","
   /QUALIFIER='"'
   /ARRANGEMENT=DELIMITED

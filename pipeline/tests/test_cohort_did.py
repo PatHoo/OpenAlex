@@ -122,6 +122,12 @@ class DidSqlTest(unittest.TestCase):
         self.assertIn("independent-cell SE, descriptive only", self.sql)
         self.assertIn("event study vs {BASELINE_YEAR}", self.sql)
 
+    def test_zero_variance_cells_do_not_divide_by_zero(self) -> None:
+        # 重跑数据里 treated 组 cn_link 全 0 -> sd=0 -> se=0；
+        # 直接 coef/se 会报 division by zero（2026-11-24 实测）
+        self.assertIn("coef/NULLIF(se,0)", self.sql)
+        self.assertIn("d.coef/NULLIF(d.se,0)", self.sql)
+
 
 class MigrationTest(unittest.TestCase):
     def test_migration_creates_audit_tables_and_did_columns(self) -> None:

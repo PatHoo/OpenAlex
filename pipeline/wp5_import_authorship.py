@@ -17,11 +17,12 @@ import argparse
 import csv
 import json
 import os
-import shlex
-import subprocess
 import sys
 import time
 from pathlib import Path
+
+from config import pg_path
+from dbutil import run_psql
 
 DATA = Path(__file__).parent / "data" / "batch_001"
 
@@ -157,31 +158,24 @@ def main():
     # COPY staging -> authorship（一次批量）
     # 关键顺序：先入库成功，再推进 offset、清空 staging。
     # 失败时两者都保持原样，重跑同一批即可补数，避免永久丢批。
-    wsl_stage = "/mnt/c" + str(staging).replace("C:\\", "/").replace("\\", "/")
+    pg_stage = pg_path(staging)
     sql = f"""
 BEGIN;
 CREATE TEMP TABLE auth_stage(work_id BIGINT, scholar_id BIGINT, author_position TEXT,
     raw_name TEXT, raw_affiliation TEXT, is_valid BOOLEAN);
-\\copy auth_stage FROM '{wsl_stage}' WITH (FORMAT csv)
+\\copy auth_stage FROM '{pg_stage}' WITH (FORMAT csv)
 INSERT INTO authorship(work_id,scholar_id,author_position,raw_name,raw_affiliation,is_valid)
 SELECT work_id,scholar_id,author_position,raw_name,raw_affiliation,is_valid
 FROM auth_stage
 ON CONFLICT (work_id,scholar_id) DO NOTHING;
 COMMIT;
 """
-    # 文件名带 PID，避免并发跑批互相覆盖 SQL
-    sqlfile = Path(os.environ.get("TEMP", "/tmp")) / f"wp5_load_{os.getpid()}.sql"
-    sqlfile.write_text(sql, encoding="utf-8")
-    wsl_sql = "/mnt/c" + str(sqlfile).replace("C:\\", "/").replace("\\", "/")
-    # 不用 `| tail`：管道退出码是 tail 的，会把 psql 失败吞成成功
-    cmd = ["wsl", "-e", "bash", "-c",
-           f'PASS=$(cat ~/.openalex_db_pass); PGPASSWORD="$PASS" psql -h 127.0.0.1 -p 5432 -U postgres -d openalex -v ON_ERROR_STOP=1 -f {shlex.quote(wsl_sql)}']
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    # run_psql 内部临时文件名带 PID，避免并发跑批互相覆盖；失败时抛 RuntimeError
     print("=== psql ===")
-    print((r.stdout or "") + (r.stderr or ""))
-    if r.returncode != 0:
-        print(f"[FATAL] psql 失败（退出码 {r.returncode}）：offset 未推进，staging 保留在 {staging}",
-              file=sys.stderr)
+    try:
+        run_psql(sql, name=f"wp5_load_{os.getpid()}")
+    except RuntimeError:
+        print(f"[FATAL] psql 失败：offset 未推进，staging 保留在 {staging}", file=sys.stderr)
         print("[FATAL] 修复后用相同参数重跑同一批即可补数", file=sys.stderr)
         raise SystemExit(1)
 

@@ -28,15 +28,22 @@ def export_csv(conn, filename: str, sql: str):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(sql)
         rows = cur.fetchall()
-    if not rows:
-        raise SystemExit(f"no rows for {filename}")
+        # 空结果也要写带表头的 CSV：下游 SPSS/Stata/ArcGIS 模板把它当合法空输入。
+        # 机构经纬度在 1,000 人试跑数据里全为空（2026-11-24 实测），
+        # 此前 raise SystemExit 会让整个导出中断、模板文件都不生成。
+        columns = [d.name for d in cur.description] if cur.description else []
+    if not rows and not columns:
+        raise SystemExit(f"no rows and no columns for {filename}")
     path = DATA / filename
     with path.open("w", encoding="utf-8-sig", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        writer = csv.DictWriter(fh, fieldnames=columns or list(rows[0].keys()))
         writer.writeheader()
         for row in rows:
             writer.writerow({k: ("" if v is None else v) for k, v in row.items()})
-    print(f"  {filename}: {len(rows):,} rows")
+    if rows:
+        print(f"  {filename}: {len(rows):,} rows")
+    else:
+        print(f"  {filename}: 0 rows (仅表头；源数据该字段为空)")
 
 
 SPSS = "" "* OpenAlex 科学家流动数据库 — SPSS 语法模板（第二期：本地软件协同）\n" \

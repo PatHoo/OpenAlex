@@ -6,7 +6,7 @@
 from pathlib import Path
 import arcpy
 
-DATA = Path(r"/mnt/c/Users/quith/Desktop/OpenAlex/deliver/local_tools/data")
+DATA = Path(r"/mnt/c/Users/Administrator/Desktop/OpenAlex/deliver/local_tools/data")
 OUT_GDB = DATA.parent / "openalex_local.gdb"
 
 if not arcpy.Exists(str(OUT_GDB)):

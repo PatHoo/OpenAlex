@@ -12,10 +12,15 @@
   - 幂等：重复运行不会产生重复行
   - 进度写 import_progress.json，可中断续跑
 
-用法（WSL）：
-  cd /mnt/c/Users/quith/Desktop/OpenAlex/pipeline
+用法：
+  # WSL：OA_PATH_MODE=wsl，密码从 ~/.openalex_db_pass 读取
+  cd <项目目录>/pipeline
+  export OA_PATH_MODE=wsl
   PGPASSWORD=$(cat ~/.openalex_db_pass) \\
     $HOME/.venvs/openalex/bin/python -u wp3_import_works.py
+  # 原生 Linux 云主机：OA_PATH_MODE=linux，密码从环境变量读取
+  export OA_PATH_MODE=linux PGPASSWORD='<数据库密码>'
+  python3 -u wp3_import_works.py
 """
 from __future__ import annotations
 
