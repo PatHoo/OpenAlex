@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+"""本地模拟门禁服务（对应生产 gate_service.py）。
+
+复用生产版的 sharecode / Cookie 校验算法（HMAC-SHA256，Cookie 只放摘要不放明文），
+适配本地 HTTP：Cookie 不带 Secure；下载不跳 COS/CDN，而是由网关直接读本地文件。
+
+监听 127.0.0.1:8765，只由本地 nginx（auth_request / 下载内部跳转）调用，不对公网开放。
+敏感值从环境变量读取（本地由 gate.env 加载），不写进代码、不进 Git。
+"""
+import hashlib
+import hmac
+import mimetypes
+import os
+import urllib.parse
+from http.cookies import SimpleCookie
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+SHARECODE = os.environ["SHARECODE"]
+COOKIE_SECRET = os.environ["COOKIE_SECRET"].encode()
+COOKIE_NAME = "oa_access"
+COOKIE_TTL = 86400
+EXPECTED = hmac.new(COOKIE_SECRET, SHARECODE.encode(), hashlib.sha256).hexdigest()
+
+# 本地直出文件；生产版 gate_service.py 这里改成 302 到 COS/CDN 签名 URL
+DOWNLOAD_DIR = Path(os.environ.get("DOWNLOAD_DIR", "/home/v/openalex-sim/www/web/download"))
+
+ALLOWED_DOWNLOADS = {
+    "新三学者基线与增量对照数据_数据库复现版.xlsx",
+    "学者流动分析成果_1000人试跑版.xlsx",
+}
+
+
+def send(handler, code, body=b"", headers=None):
+    handler.send_response(code)
+    for k, v in (headers or {}).items():
+        handler.send_header(k, v)
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    if handler.command != "HEAD":
+        handler.wfile.write(body)
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "OpenAlexLocalGate/1.0"
+
+    def authed(self):
+        jar = SimpleCookie()
+        try:
+            jar.load(self.headers.get("Cookie", ""))
+        except Exception:
+            return False
+        morsel = jar.get(COOKIE_NAME)
+        return bool(morsel) and hmac.compare_digest(morsel.value, EXPECTED)
+
+    def do_HEAD(self):
+        self.do_GET()
+
+    def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+
+        if path == "/auth":
+            send(self, 200 if self.authed() else 401,
+                 headers={"Cache-Control": "no-store"})
+            return
+
+        if path == "/login":
+            q = urllib.parse.parse_qs(parsed.query)
+            code = q.get("sharecode", [""])[0]
+            target = q.get("next", ["/web/index.html"])[0]
+            if not target.startswith("/") or target.startswith("//"):
+                target = "/web/index.html"
+            if not hmac.compare_digest(code, SHARECODE):
+                send(self, 403, b"invalid sharecode\n",
+                     {"Content-Type": "text/plain; charset=utf-8",
+                      "Cache-Control": "no-store"})
+                return
+            # 本地 HTTP：不带 Secure，否则浏览器不会回传 Cookie
+            cookie = "%s=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=%d" % (
+                COOKIE_NAME, EXPECTED, COOKIE_TTL)
+            send(self, 302, headers={
+                "Set-Cookie": cookie,
+                "Location": target,
+                "Cache-Control": "no-store",
+            })
+            return
+
+        if path == "/logout":
+            send(self, 302, headers={
+                "Set-Cookie": "%s=; Path=/; Max-Age=0" % COOKIE_NAME,
+                "Location": "/login",
+            })
+            return
+
+        if path.startswith("/web/download/"):
+            if not self.authed():
+                send(self, 401, headers={"Cache-Control": "no-store"})
+                return
+            name = urllib.parse.unquote(path.rsplit("/", 1)[-1])
+            if name not in ALLOWED_DOWNLOADS:
+                send(self, 404, b"not found\n",
+                     {"Content-Type": "text/plain; charset=utf-8"})
+                return
+            target = DOWNLOAD_DIR / name
+            if not target.is_file():
+                send(self, 404, b"not found\n",
+                     {"Content-Type": "text/plain; charset=utf-8"})
+                return
+            data = target.read_bytes()
+            ctype = mimetypes.guess_type(name)[0] or "application/octet-stream"
+            send(self, 200, data, {
+                "Content-Type": ctype,
+                "Content-Disposition": 'attachment; filename*=UTF-8\'\'%s' % urllib.parse.quote(name),
+                "Cache-Control": "no-store",
+            })
+            return
+
+        send(self, 404, b"not found\n",
+             {"Content-Type": "text/plain; charset=utf-8"})
+
+    def log_message(self, fmt, *args):
+        # 不记录任何请求，避免 sharecode / Cookie 落盘
+        return
+
+
+if __name__ == "__main__":
+    ThreadingHTTPServer(("127.0.0.1", 8765), Handler).serve_forever()
