@@ -9,6 +9,7 @@
 """
 import hashlib
 import hmac
+import html
 import mimetypes
 import os
 import urllib.parse
@@ -29,6 +30,34 @@ ALLOWED_DOWNLOADS = {
     "新三学者基线与增量对照数据_数据库复现版.xlsx",
     "学者流动分析成果_1000人试跑版.xlsx",
 }
+
+LOGIN_PAGE = """<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第二期 DEMO · 分享码验证</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;
+background:#0f172a;color:#e2e8f0;font:15px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.box{width:min(420px,90vw);background:#1e293b;padding:30px;border-radius:12px;
+box-shadow:0 20px 50px rgba(0,0,0,.4)}h1{margin:0 0 6px;font-size:20px}
+p{margin:0 0 22px;color:#94a3b8;font-size:13px}
+input,button{width:100%;padding:11px 14px;border-radius:7px;border:1px solid #475569;
+background:#0f172a;color:#e2e8f0;font-size:15px}
+input:focus{outline:none;border-color:#3b82f6}
+button{margin-top:14px;background:#2563eb;border:none;font-weight:600;cursor:pointer}
+button:hover{background:#1d4ed8}
+.tip{margin-top:16px;color:#64748b;font-size:12px}
+</style></head><body>
+<div class="box">
+  <h1>OpenAlex 科研分析平台</h1>
+  <p>第二期 DEMO · 请输入分享码继续</p>
+  <form method="get" action="/login">
+    <input type="hidden" name="next" value="__NEXT__">
+    <input type="text" name="sharecode" placeholder="分享码" autofocus required autocomplete="off">
+    <button type="submit">进入平台</button>
+  </form>
+  <div class="tip">本地测试分享码：<b>LocalTest2026</b></div>
+</div></body></html>"""
 
 
 def send(handler, code, body=b"", headers=None):
@@ -71,6 +100,13 @@ class Handler(BaseHTTPRequestHandler):
             target = q.get("next", ["/web/index.html"])[0]
             if not target.startswith("/") or target.startswith("//"):
                 target = "/web/index.html"
+            # 未带 sharecode：显示输入页（生产版靠外部系统带码，本地补一个便于测试）
+            if not code:
+                page = LOGIN_PAGE.replace("__NEXT__", html.escape(target, quote=True))
+                send(self, 200, page.encode("utf-8"),
+                     {"Content-Type": "text/html; charset=utf-8",
+                      "Cache-Control": "no-store"})
+                return
             if not hmac.compare_digest(code, SHARECODE):
                 send(self, 403, b"invalid sharecode\n",
                      {"Content-Type": "text/plain; charset=utf-8",
