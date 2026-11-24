@@ -22,3 +22,6 @@ Thumbs.db
 
 # 在线发布用的临时快照目录（内容由 pipeline 导出脚本再生成）
 deploy_phase2/
+
+# 演示文稿生成工具的临时缓存
+.slidep/
