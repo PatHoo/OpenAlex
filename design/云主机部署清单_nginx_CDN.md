@@ -56,21 +56,21 @@ sudo systemctl enable --now certbot.timer
 
 ### 4.1 本地导出转储
 
-先确认本地 PG17 里确实有 1,000 人试跑数据。注意：README 记录试跑库约 2.1 GB，但本机 WSL 目前只建了 `openalex` 库和 PostGIS 扩展、`schema.sql` 尚未导入——**导出前先核对表行数**，否则会把空库搬上云。
+先确认本地 PG17 里确实有 1,000 人试跑数据。**注意库名：本机 WSL 的试跑数据在 `openalex_1000` 库（2026-11-25 重跑完成），另一个 `openalex` 库只有 3 行、是早期空壳——务必从 `openalex_1000` 导出，别搬错库。** 云端恢复目标是 `openalex` 库（与 pipeline 默认连接参数一致），导出/导入库名不同是刻意设计。
 
 ```bash
-# 在 WSL 里执行
-PGPASSWORD=$(cat ~/.openalex_db_pass) psql -h 127.0.0.1 -U postgres -d openalex \
-  -c "SELECT count(*) FROM scholar; SELECT count(*) FROM work;"
+# 在 WSL 里执行（核对源库 openalex_1000）
+PGPASSWORD=$(cat ~/.openalex_db_pass) psql -h 127.0.0.1 -U postgres -d openalex_1000 \
+  -tAc "SELECT (SELECT count(*) FROM source_scholar), (SELECT count(*) FROM scholar), (SELECT count(*) FROM work), (SELECT count(*) FROM authorship), (SELECT count(*) FROM institution), (SELECT count(*) FROM annual_panel), (SELECT count(*) FROM mobility_event), (SELECT count(*) FROM did_panel);"
 ```
 
-- [ ] `scholar` 约 896 行、`work` 约 865,111 行 → 才是有数据的试跑库
-- [ ] 若为空，需先从原始试跑环境恢复，再执行下面的导出
+- [ ] 应为 `1000|895|853423|833756|31856|42165|13357|3316`（2026-11-25 重跑实测）→ 才是有数据的试跑库
+- [ ] 若为 `3|3|0|0`，说明连错到 `openalex` 空壳库，改用 `-d openalex_1000`
 
 ```bash
 sudo mkdir -p /mnt/d/openalex_backup
 PGPASSWORD=$(cat ~/.openalex_db_pass) pg_dump -h 127.0.0.1 -p 5432 -U postgres \
-  -Fc openalex -f /mnt/d/openalex_backup/openalex_$(date +%F).dump
+  -Fc openalex_1000 -f /mnt/d/openalex_backup/openalex_1000_$(date +%F).dump
 ls -lh /mnt/d/openalex_backup/          # 应在 2 GB 量级
 scp /mnt/d/openalex_backup/openalex_*.dump <user>@<host>:/opt/openalex/
 ```
@@ -82,11 +82,11 @@ scp /mnt/d/openalex_backup/openalex_*.dump <user>@<host>:/opt/openalex/
 - [ ] 执行安装 + 恢复（第二个参数是转储文件路径，脚本会自动只监听 127.0.0.1）：
 
 ```bash
-sudo bash /opt/openalex/setup_postgres.sh '<数据库密码>' /opt/openalex/openalex_2026-11-24.dump
+sudo bash /opt/openalex/setup_postgres.sh '<数据库密码>' /opt/openalex/openalex_1000_2026-11-25.dump
 ```
 
 - [ ] 验证：`sudo -u postgres psql -d openalex -c "SELECT PostGIS_Version();"`
-- [ ] 验证行数：`PGPASSWORD='<密码>' psql -h 127.0.0.1 -U oa_app -d openalex -c "SELECT count(*) FROM work;"`
+- [ ] 验证行数：`PGPASSWORD='<密码>' psql -h 127.0.0.1 -U oa_app -d openalex -c "SELECT count(*) FROM work;"` → 应为 **853,423**（源库 `openalex_1000` 恢复到云端 `openalex` 库；若接近 0 说明导错库或恢复失败）
 - [ ] 确认 5432 未监听公网：`sudo ss -lntp | grep 5432` → 只应看到 `127.0.0.1:5432`
 
 ### 4.3 pipeline 运行环境（已重构）

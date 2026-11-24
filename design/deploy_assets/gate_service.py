@@ -7,6 +7,7 @@
 
 import hashlib
 import hmac
+import html
 import os
 import time
 import urllib.parse
@@ -33,6 +34,35 @@ ALLOWED = {
     "新三学者基线与增量对照数据_数据库复现版.xlsx",
     "学者流动分析成果_1000人试跑版.xlsx",
 }
+
+# 裸 /login?next=...（如客户直接访问 /web/ 被 302 过来）没有 sharecode 参数，
+# 此时显示分享码输入页，避免直接 403 invalid sharecode。
+# 生产环境的分享码仍由项目负责人通过内部渠道分发，页面不预填、不展示。
+LOGIN_PAGE = """<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenAlex 科研分析平台 · 分享码验证</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;
+background:#0f172a;color:#e2e8f0;font:15px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.box{width:min(420px,90vw);background:#1e293b;padding:30px;border-radius:12px;
+box-shadow:0 20px 50px rgba(0,0,0,.4)}h1{margin:0 0 6px;font-size:20px}
+p{margin:0 0 22px;color:#94a3b8;font-size:13px}
+input,button{width:100%;padding:11px 14px;border-radius:7px;border:1px solid #475569;
+background:#0f172a;color:#e2e8f0;font-size:15px}
+input:focus{outline:none;border-color:#3b82f6}
+button{margin-top:14px;background:#2563eb;border:none;font-weight:600;cursor:pointer}
+button:hover{background:#1d4ed8}
+</style></head><body>
+<div class="box">
+  <h1>OpenAlex 科研分析平台</h1>
+  <p>请输入项目负责人提供的分享码继续</p>
+  <form method="get" action="/login">
+    <input type="hidden" name="next" value="__NEXT__">
+    <input type="text" name="sharecode" placeholder="分享码" autofocus required autocomplete="off">
+    <button type="submit">进入平台</button>
+  </form>
+</div></body></html>"""
 
 
 def signed_download_url(key):
@@ -101,6 +131,15 @@ class Handler(BaseHTTPRequestHandler):
             # 只允许站内跳转，避免开放重定向
             if not target.startswith("/") or target.startswith("//"):
                 target = "/web/platform.html"
+            # 未带 sharecode：显示输入页而非直接 403（开放重定向防护已做，转义 next）
+            if not code:
+                page = LOGIN_PAGE.replace("__NEXT__", html.escape(target, quote=True))
+                self.send_result(
+                    200, page.encode("utf-8"),
+                    {"Content-Type": "text/html; charset=utf-8",
+                     "Cache-Control": "no-store"},
+                )
+                return
             if not hmac.compare_digest(code, SHARECODE):
                 self.send_result(
                     403,
