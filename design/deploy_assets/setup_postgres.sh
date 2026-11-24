@@ -25,11 +25,17 @@ apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y \
     postgresql-17 postgresql-client-17 postgresql-17-postgis-3
 
-echo "[2/6] 限制只监听本机，并设置内存参数（16 GB 内存机器）"
+echo "[2/6] 限制只监听本机，并按实际内存设置参数"
 CONF=/etc/postgresql/17/main/postgresql.conf
+TOTAL_MB=$(( $(awk '/MemTotal/ {print $2}' /proc/meminfo) / 1024 ))
+SHARED_MB=$(( TOTAL_MB / 4 ))          # 物理内存 25%（PG 常规建议）
+CACHE_MB=$(( TOTAL_MB * 3 / 4 ))       # 有效缓存 75%
+[ "$SHARED_MB" -lt 512 ] && SHARED_MB=512
+[ "$CACHE_MB" -lt 1024 ] && CACHE_MB=1024
+echo "  检测到 ${TOTAL_MB} MB 内存 → shared_buffers=${SHARED_MB}MB, effective_cache_size=${CACHE_MB}MB"
 sed -ri "s/^#?listen_addresses.*/listen_addresses = '127.0.0.1'/" "$CONF"
-sed -ri "s/^#?shared_buffers.*/shared_buffers = 4GB/" "$CONF"
-sed -ri "s/^#?effective_cache_size.*/effective_cache_size = 12GB/" "$CONF"
+sed -ri "s/^#?shared_buffers.*/shared_buffers = ${SHARED_MB}MB/" "$CONF"
+sed -ri "s/^#?effective_cache_size.*/effective_cache_size = ${CACHE_MB}MB/" "$CONF"
 sed -ri "s/^#?max_connections.*/max_connections = 100/" "$CONF"
 
 HBA=/etc/postgresql/17/main/pg_hba.conf

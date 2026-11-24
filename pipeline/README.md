@@ -176,6 +176,29 @@ python -u rerun_1000.py --stage fetch --fresh
 - 任何暂停（额度耗尽 / 成本超限 / 请求失败）都返回退出码 3，重跑同一条命令即可续抓。
 - 注意：重跑结果不是原快照的逐字节恢复——OpenAlex 消歧和检索排序会变，交付页面须标注新的抓取日期。
 
+### 5,000 人一键扩容（`run_rerun_5000.sh`，客户终态）
+
+客户目标是在云端 1,000 人验收后，**一键把学者数扩到 5,000 人**（10 万人规模由客户另购服务器）。
+用 `design/run_rerun_5000.sh`——它把规模与成本闸门锁定到 5,000 人档，内部仍调用 `rerun_1000.py`：
+
+```bash
+# 云端（root 或能写 /var/log/openalex 的用户）
+chmod +x design/run_rerun_5000.sh
+./design/run_rerun_5000.sh                 # 正式跑：--fresh 重建 5000 人子集 + 全链路
+./design/run_rerun_5000.sh --dry-run       # 只看计划
+./design/run_rerun_5000.sh --no-fresh      # 续跑（接着已有 checkpoint）
+```
+
+- 子集规模由 `OA_SUBSET_SIZE` 控制（默认 1000；本脚本固定 5000）。`wp0_import.py` 从
+  105,026 人名单取前 N 人，`subset.jsonl` 与 `subset_source.sql` 会同步重建。
+- 成本闸门 `OA_COST_CAP_USD` 默认锁 **11.00 美元**（1000 人实测 $1.96 线性外推 $9.81 + 缓冲）。
+- 5000 人规模预估：请求约 51,810 次、API 费约 $9.8、works 约 427 万行、入库约 10.5 GB。
+  `--fresh` 会重建子集并清空 checkpoint，**5,000 人全量重抓**（含原 1,000 人），不是只补 4,000 人；
+  原 1,000 人结果会先备份。`$9.8` 是全量费用，别按"补 4,000 人"预算。
+- 跑完需同步 `web/` 到站点根、重传 xlsx 到 COS 并刷新 CDN；脚本结束时会提示。
+- `--dry-run` 不执行 WP0，显示的 `[PLAN]` 读的是现有 `subset.jsonl`（可能是旧人数）；
+  正式跑才会重建为 5000 人。这是刻意设计，避免预演写盘。
+
 **断点续跑与失败安全**：wp12 读 `checkpoint.json`、wp3 读 `import_progress.json`，已完成的自动跳过。请求失败（额度耗尽 / 网络重试耗尽 / 非限流 4xx / key 未激活）时 wp12 抛 `APIFetchFailed` 或 `APIBudgetExhausted`，停在**当前学者**——不写半截作品、不写空候选、不标记完成，下次续跑补抓。wp5 只有 COPY **成功后**才推进 offset 并清空 staging；失败时保留现场，同参重跑即可补批。
 
 ## 回归测试

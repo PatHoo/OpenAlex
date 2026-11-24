@@ -1,9 +1,12 @@
-"""WP0：读取 Elsevier 2017 高引名单，导入 source_scholar，生成 1,000 人试跑子集。
+"""WP0：读取 Elsevier 2017 高引名单，导入 source_scholar，生成试跑子集。
 
 输出（均在 pipeline/data/batch_001/）：
   source_scholar.jsonl   105,026 行，字段对齐 schema.sql 的 source_scholar 表
-  subset.jsonl           1,000 行，按 src_id 排序的前 1,000 人（可复现）
+  subset.jsonl           前 N 行，按 src_id 排序、确定性可复现
   subset_source.sql      幂等 upsert 的 SQL，导入数据库后可跑 WP1
+
+N 由环境变量 OA_SUBSET_SIZE 决定（默认 1000）。扩到 5000 人时设 OA_SUBSET_SIZE=5000，
+rerun_1000.py 再配合 --limit 5000 与提高的 OA_COST_CAP_USD。
 
 注意：Excel 国家码是 3 字母（usa/che/...），source_scholar.cntry 是 CHAR(2)，
 原始 3 字母码完整保留在 raw_payload.cntry_iso3，不用 2 字母猜测覆盖。
@@ -11,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -116,6 +120,17 @@ def row_sql(r: dict, src_id: int) -> str:
     )
 
 
+def subset_size(total_rows: int) -> int:
+    """解析 OA_SUBSET_SIZE：默认 1000，非法值回退 1000，超过名单行数按名单行数。"""
+    try:
+        n = int(os.environ.get("OA_SUBSET_SIZE", "1000"))
+    except (ValueError, TypeError):
+        n = 1000
+    if n < 1:
+        n = 1
+    return min(n, total_rows)
+
+
 def main() -> None:
     rows = load_rows()
     print(f"[WP0] data rows = {len(rows)} (expected {EXPECTED_DATA_ROWS})")
@@ -129,17 +144,20 @@ def main() -> None:
             f.write(json.dumps({"src_id": r["excel_row"], **r}, ensure_ascii=False) + "\n")
     print(f"[WP0] wrote {all_path} ({len(rows)} rows)")
 
-    # 子集：前 1,000 条（src_id 1..1000），确定性可复现
-    subset = rows[:1000]
+    # 子集：前 N 条（src_id 1..N），确定性可复现；N 默认 1000，可用 OA_SUBSET_SIZE 调整
+    n = subset_size(len(rows))
+    if n != int(os.environ.get("OA_SUBSET_SIZE", "1000") or 1000):
+        print(f"[WP0][WARN] OA_SUBSET_SIZE 被夹取到名单范围：{n} / {len(rows)}")
+    subset = rows[:n]
     sub_path = d / "subset.jsonl"
     with sub_path.open("w", encoding="utf-8") as f:
         for r in subset:
             f.write(json.dumps({"src_id": r["excel_row"], **r}, ensure_ascii=False) + "\n")
-    print(f"[WP0] wrote {sub_path} ({len(subset)} rows)")
+    print(f"[WP0] wrote {sub_path} ({len(subset)} rows, OA_SUBSET_SIZE={n})")
 
     sql_path = d / "subset_source.sql"
     with sql_path.open("w", encoding="utf-8") as f:
-        f.write("-- WP0 子集：src_id = Excel 行号（含表头），前 1000 数据行；按 source_row 幂等 upsert\n")
+        f.write(f"-- WP0 子集：src_id = Excel 行号（含表头），前 {n} 数据行；按 source_row 幂等 upsert\n")
         f.write("BEGIN;\n")
         for r in subset:
             f.write(row_sql(r, r["excel_row"]) + "\n")
