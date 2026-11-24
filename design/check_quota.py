@@ -157,7 +157,7 @@ def main() -> int:
         budget = rl.get("daily_budget_usd")
         used = rl.get("daily_used_usd")
         remain = rl.get("daily_remaining_usd")
-        prepaid = rl.get("prepaid_remaining_usd", 0)
+        prepaid = rl.get("prepaid_balance_usd", 0)
         print(f"[{label} {mask(key)}] {d.get('api_key', '')}")
         print(f"  每日额度   : ${remain} / ${budget} 剩余（已用 ${used}）")
         if prepaid:
