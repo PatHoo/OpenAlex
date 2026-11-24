@@ -1,0 +1,74 @@
+<Slide style={{ width: 1280, height: 720, padding: 60, background: '#FFFFFF', position: 'relative', fontFamily: 'Microsoft YaHei, Arial' }}>
+  <Box style={{ flexDirection: 'column', height: 600 }}>
+
+    <Box style={{ height: 50, justifyContent: 'center' }}>
+      <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#12324F', lineHeight: 1.2 }}>一键扩容到 5,000 人：点按钮之后发生什么</Text>
+    </Box>
+    <Box style={{ height: 1, width: '100%', background: '#12324F' }} />
+    <Box style={{ height: 30, marginTop: 8, justifyContent: 'center' }}>
+      <Text style={{ fontSize: 19, color: '#64748B', lineHeight: 1.4 }}>按钮只负责「触发 + 看进度」，跑批逻辑一行不改；付费只决定快慢，不改变流程</Text>
+    </Box>
+
+    <Box style={{ height: 30, marginTop: 10, justifyContent: 'center' }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#12324F', lineHeight: 1.3 }}>点按钮之后发生什么 · 四步后台链路</Text>
+    </Box>
+
+    <Box style={{ flexDirection: 'row', height: 134, marginTop: 6, gap: 16 }}>
+      <Box style={{ flex: 1, background: '#F7FAFD', borderRadius: 8, padding: 10, flexDirection: 'column' }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#E07B39', lineHeight: 1.2 }}>①</Text>
+        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#12324F', lineHeight: 1.3, marginTop: 2 }}>管理员点按钮</Text>
+        <Text style={{ fontSize: 15, color: '#64748B', lineHeight: 1.35, marginTop: 4 }}>管理员码登录<br />二次确认明示 $9.8</Text>
+      </Box>
+      <Box style={{ flex: 1, background: '#F7FAFD', borderRadius: 8, padding: 10, flexDirection: 'column' }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#E07B39', lineHeight: 1.2 }}>②</Text>
+        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#12324F', lineHeight: 1.3, marginTop: 2 }}>后台自动跑</Text>
+        <Text style={{ fontSize: 15, color: '#64748B', lineHeight: 1.35, marginTop: 4 }}>断点续跑，额度耗尽<br />次日自动续跑</Text>
+      </Box>
+      <Box style={{ flex: 1, background: '#F7FAFD', borderRadius: 8, padding: 10, flexDirection: 'column' }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#E07B39', lineHeight: 1.2 }}>③</Text>
+        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#12324F', lineHeight: 1.3, marginTop: 2 }}>进度页实时看</Text>
+        <Text style={{ fontSize: 15, color: '#64748B', lineHeight: 1.35, marginTop: 4 }}>完成 X/5,000 人<br />已花 $X、重置时间</Text>
+      </Box>
+      <Box style={{ flex: 1, background: '#F7FAFD', borderRadius: 8, padding: 10, flexDirection: 'column' }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#E07B39', lineHeight: 1.2 }}>④</Text>
+        <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#12324F', lineHeight: 1.3, marginTop: 2 }}>校验后切换</Text>
+        <Text style={{ fontSize: 15, color: '#64748B', lineHeight: 1.35, marginTop: 4 }}>新快照原子切换<br />旧版随时可回退</Text>
+      </Box>
+    </Box>
+
+    <Box style={{ height: 1, width: '100%', background: '#E9F1F8', marginTop: 12 }} />
+
+    <Box style={{ height: 30, marginTop: 10, justifyContent: 'center' }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#12324F', lineHeight: 1.3 }}>同一套按钮，两种速度 · 付费只决定快慢</Text>
+    </Box>
+
+    <Box style={{ marginTop: 8, flexDirection: 'column' }}>
+      <Box style={{ height: 56, flexDirection: 'row', alignItems: 'center', borderBottom: '1px solid #E9F1F8' }}>
+        <Text style={{ width: 230, fontSize: 18, color: '#1E293B', lineHeight: 1.4 }}>不提速</Text>
+        <Text style={{ width: 180, fontSize: 20, fontWeight: 'bold', color: '#1E293B', lineHeight: 1.4 }}>约 5 天</Text>
+        <Text style={{ flex: 1, fontSize: 16, color: '#64748B', lineHeight: 1.4 }}>$9.8 · 两把免费 key / 天，跨 5 个自然日</Text>
+      </Box>
+      <Box style={{ height: 56, flexDirection: 'row', alignItems: 'center', borderBottom: '1px solid #E9F1F8', background: '#F4FAF9' }}>
+        <Text style={{ width: 230, fontSize: 18, fontWeight: 'bold', color: '#0F766E', lineHeight: 1.4 }}>预付 $10 · 推荐</Text>
+        <Text style={{ width: 180, fontSize: 20, fontWeight: 'bold', color: '#E07B39', lineHeight: 1.4 }}>1.5–3 小时</Text>
+        <Text style={{ flex: 1, fontSize: 16, color: '#0F766E', lineHeight: 1.4 }}>约 ¥72 · 3 个月有效，不受新账号节流</Text>
+      </Box>
+      <Box style={{ height: 56, flexDirection: 'row', alignItems: 'center', borderBottom: '1px solid #E9F1F8' }}>
+        <Text style={{ width: 230, fontSize: 18, color: '#1E293B', lineHeight: 1.4 }}>年付 Member</Text>
+        <Text style={{ width: 180, fontSize: 20, fontWeight: 'bold', color: '#1E293B', lineHeight: 1.4 }}>约 1 小时</Text>
+        <Text style={{ flex: 1, fontSize: 16, color: '#64748B', lineHeight: 1.4 }}>¥36,000/年 · 一次性扩容明显过剩</Text>
+      </Box>
+    </Box>
+
+    <Box style={{ height: 66, marginTop: 14, padding: 12, background: '#E9F1F8', borderRadius: 8, flexDirection: 'column', justifyContent: 'center' }}>
+      <Text style={{ fontSize: 16, color: '#12324F', lineHeight: 1.4 }}>关键提醒：充值须用 Settings → API key 的<span style={{ fontWeight: 'bold', color: '#C2410C' }}>账户主 key</span>；agent key 只花免费额度，无法扣预付。</Text>
+      <Text style={{ fontSize: 16, color: '#12324F', lineHeight: 1.4, marginTop: 2 }}>待客户拍板：<span style={{ fontWeight: 'bold' }}>谁能点</span>（管理员码） · <span style={{ fontWeight: 'bold' }}>钱谁出</span>（$9.8 归属） · <span style={{ fontWeight: 'bold' }}>等待期怎么展示</span>（进度页）</Text>
+    </Box>
+
+  </Box>
+
+  <Box style={{ position: 'absolute', bottom: 18, left: 60, right: 60, flexDirection: 'row', justifyContent: 'space-between' }}>
+    <Text style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.3 }}>OpenAlex 科研分析平台 · 商务沟通稿</Text>
+    <Text style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.3 }}>来源：help.openalex.org · 规则核实 2026-11-25</Text>
+  </Box>
+</Slide>
